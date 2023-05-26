@@ -1,39 +1,61 @@
-# CDN SDK - React Components Connected to Dfinity Actor via Cloudflare
-
-Welcome to the Hackathon Repository for our CDN SDK, a cutting-edge solution for mounting standalone payment services. Our SDK serves React components that are connected to a Dfinity actor through Cloudflare. This allows you to integrate advanced payment services directly into your projects, while taking advantage of the performance and reliability benefits of serving these components through a CDN.
-
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Introduction
-
-Our SDK brings the power of Dfinity and React together, simplifying the integration of payment services into any application. By serving our React components through Cloudflare, we ensure high availability and low latency, regardless of where your users are located.
-
-## Features
-
-- **React Components**: Leverage the power of React to easily integrate our payment services into your applications.
-- **Dfinity Integration**: Our components are directly connected to a Dfinity actor, ensuring secure and reliable transactions.
-- **CDN Served**: By serving our SDK via Cloudflare, we guarantee quick load times and high availability.
-
-## Installation
-
-Please see the `INSTALLATION.md` for details on how to install and configure our CDN SDK in your project.
+Replace `https://example.com/ckPaysdk.js` with the correct URL or path to the SDK file in your project.
 
 ## Usage
 
-Once installed, you can integrate our SDK's React components into your application. See `USAGE.md` for detailed examples and usage instructions.
+To use SDK Name in your web application, follow these steps:
 
-## Contributing
+1. Include the following HTML markup in your document where you want to display the payment modal:
+    ```html
+        <div id="payment-modal"></div>
+    ```
 
-We welcome contributions from the community. Please see `CONTRIBUTING.md` for guidelines on how to contribute to this project.
+2. Add the following JavaScript code to your document, preferably inside a <script> tag or an external JavaScript file:
 
-## License
+   ```javascript
+   window.onload = function() {
+    var modalElement = document.getElementById('payment-modal');
+    ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
+}
+```
 
-This project is licensed under [insert your license here]. For more information, please see `LICENSE.md`.
+Make sure to replace `{ /* props go here */ }` with the necessary configuration options for your payment component.
 
+You can customize the SDK integration as per your application's requirements. Refer to the SDK documentation for detailed information on available configuration options and APIs.
+
+## Sample HTML Integration
+
+Here's an example of how you can integrate the SDK in a basic HTML page:
+
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SDK Name HTML Integration</title>
+  <script src="https://example.com/ckPaysdk.js"></script>
+</head>
+<body>
+  <div id="payment-modal"></div>
+  <script>
+    window.onload = function() {
+        var modalElement = document.getElementById('payment-modal');
+        ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
+    }
+  </script>
+</body>
+</html>
+```
+
+Replace `https://example.com/ckPaysdk.js` with the correct URL or path to the SDK file in your project.
+
+## Sample React Integration
+
+Here's an example of how you can integrate the SDK in a React application:
+
+1. Install the SDK package using npm or yarn:
+
+   `BASH COMMANDS GO HERE`
+
+2. Import the SDK into your React component:
+
+   `JSX CODE GOES HERE`

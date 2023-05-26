@@ -2,10 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import PaymentComponent from "./Pay";
 
-window.MySDK = {
+window.ckPaySDK = {
   PaymentComponent,
   render: (componentName, container, props) => {
-    const Component = MySDK[componentName];
+    const Component = ckPaySDK[componentName];
     ReactDOM.render(<Component {...props} />, container);
-  },
-};
+  }
+}

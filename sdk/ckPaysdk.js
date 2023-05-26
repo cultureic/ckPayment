@@ -50,9 +50,9 @@ function PaymentComponent(_ref) {
 // Create a global object that exposes methods to render your components
 const MyLibrary = {
   renderPaymentModal: (element, props, onPayment) => {
-    react_dom__WEBPACK_IMPORTED_MODULE_1__.render( /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(PaymentComponent, _extends({}, props, {
+    /*#__PURE__*/react_dom__WEBPACK_IMPORTED_MODULE_1__.createPortal( /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(PaymentComponent, _extends({}, props, {
       onPayment: onPayment
-    })), element);
+    })), document.body);
   }
 };
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (MyLibrary);
@@ -33493,10 +33493,10 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-window.MySDK = {
+window.ckPaySDK = {
   PaymentComponent: _Pay__WEBPACK_IMPORTED_MODULE_2__["default"],
   render: (componentName, container, props) => {
-    const Component = MySDK[componentName];
+    const Component = ckPaySDK[componentName];
     react_dom__WEBPACK_IMPORTED_MODULE_1__.render( /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(Component, props), container);
   }
 };

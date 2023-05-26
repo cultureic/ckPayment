@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BTC Checkout</title>
+  <title>Document</title>
 </head>
 <body>
-  <btc-checkout></btc-checkout>
+  <div id="payment-modal"></div>
+  <script src="../../../sdk//ckPaysdk.js"></script>
+  <script>
+    window.onload = function() {
+        var modalElement = document.getElementById('payment-modal');
+        ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
+    }
+  </script>
 </body>
 </html>

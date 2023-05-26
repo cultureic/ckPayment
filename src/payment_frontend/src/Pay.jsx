@@ -27,7 +27,7 @@ function PaymentComponent({ onPayment }) {
 // Create a global object that exposes methods to render your components
 const MyLibrary = {
   renderPaymentModal: (element, props, onPayment) => {
-    ReactDOM.render(<PaymentComponent {...props} onPayment={onPayment} />, element);
+    ReactDOM.createPortal(<PaymentComponent {...props} onPayment={onPayment} />, document.body);
   },
 };
 
