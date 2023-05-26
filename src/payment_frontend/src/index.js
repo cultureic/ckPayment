@@ -1,19 +1,11 @@
-import { payment_backend } from "../../declarations/payment_backend";
+import React from 'react';
+import ReactDOM from 'react-dom';
+import PaymentComponent from "./Pay";
 
-document.querySelector("form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const button = e.target.querySelector("button");
-
-  const name = document.getElementById("name").value.toString();
-
-  button.setAttribute("disabled", true);
-
-  // Interact with foo actor, calling the greet method
-  const greeting = await payment_backend.greet(name);
-
-  button.removeAttribute("disabled");
-
-  document.getElementById("greeting").innerText = greeting;
-
-  return false;
-});
+window.MySDK = {
+  PaymentComponent,
+  render: (componentName, container, props) => {
+    const Component = MySDK[componentName];
+    ReactDOM.render(<Component {...props} />, container);
+  },
+};
