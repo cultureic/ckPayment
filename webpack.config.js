@@ -31,7 +31,7 @@ module.exports = {
     },
   },
   output: {
-    filename: "my-sdk.js",
+    filename: "ckPaysdk.js",
     path: path.join(__dirname, "dist", frontendDirectory),
     library: "ckPay.js",
     libraryTarget: "umd"
