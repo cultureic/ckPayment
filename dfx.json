@@ -13,7 +13,7 @@
       },
       "source": [
         "src/payment_frontend/assets",
-        "dist/payment_frontend/"
+        "dist"
       ],
       "type": "assets"
     }

@@ -5,13 +5,9 @@
   <title>Document</title>
 </head>
 <body>
+  <div id="app"></div>
   <div id="payment-modal"></div>
-  <script src="../../../sdk//ckPaysdk.js"></script>
-  <script>
-    window.onload = function() {
-        var modalElement = document.getElementById('payment-modal');
-        ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
-    }
-  </script>
+  <script src="index.js"></script>
+  <script src="../bundleSDK/ckPaysdk.js"></script>
 </body>
 </html>

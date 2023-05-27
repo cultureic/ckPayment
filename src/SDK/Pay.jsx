@@ -1,9 +1,9 @@
 
 // Import the necessary libraries
 import React from 'react';
-import ReactDOM from 'react-dom';
-
-
+import {createPortal} from "react-dom"
+import {createRoot} from 'react-dom/client';
+import "./index.css"
 
 function PaymentComponent({ onPayment }) {
   const handlePayment = () => {
@@ -27,7 +27,9 @@ function PaymentComponent({ onPayment }) {
 // Create a global object that exposes methods to render your components
 const MyLibrary = {
   renderPaymentModal: (element, props, onPayment) => {
-    ReactDOM.createPortal(<PaymentComponent {...props} onPayment={onPayment} />, document.body);
+    const root = createRoot(element)
+    let portal = createPortal(<PaymentComponent {...props} onPayment={onPayment} />, document.body);
+    root.render(portal)
   },
 };
 

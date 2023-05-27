@@ -1,11 +1,23 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
-import PaymentComponent from "./Pay";
+import {createRoot} from 'react-dom/client';
 
-window.ckPaySDK = {
-  PaymentComponent,
-  render: (componentName, container, props) => {
-    const Component = ckPaySDK[componentName];
-    ReactDOM.render(<Component {...props} />, container);
-  }
+
+
+window.onload = function() {
+  console.log("window",window)
+    var modalElement = document.getElementById('payment-modal');
+    ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
 }
+
+const App = () =>{
+  return<div>
+    <h1>hello world</h1>
+    </div>
+}
+
+
+const container = document.getElementById('app');
+const root = createRoot(container);
+
+
+root.render(<App/>)

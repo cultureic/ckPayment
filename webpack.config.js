@@ -14,6 +14,8 @@ module.exports = {
   mode: isDevelopment ? "development" : "production",
   entry: {
     index: path.join(__dirname, frontend_entry).replace(/\.html$/, ".js"),
+    cdkPay: path.join(__dirname, "src", "SDK", "ckPay.js")
+
   },
   devtool: isDevelopment ? "source-map" : false,
   optimization: {
@@ -31,10 +33,10 @@ module.exports = {
     },
   },
   output: {
-    filename: "ckPaysdk.js",
-    path: path.join(__dirname, "dist", frontendDirectory),
-    library: "ckPay.js",
-    libraryTarget: "umd"
+    filename: '[name].js',
+    path: path.join(__dirname, "dist"),
+    library: '[name]',
+    libraryTarget: 'umd'
   },
   module: {
     rules: [
@@ -47,6 +49,10 @@ module.exports = {
             presets: ['@babel/preset-env', '@babel/preset-react'],
           },
         },
+      },
+      {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader'],
       },
     ],
   },
