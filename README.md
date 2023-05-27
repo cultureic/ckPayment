@@ -16,7 +16,6 @@ To use SDK Name in your web application, follow these steps:
     var modalElement = document.getElementById('payment-modal');
     ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
 }
-```
 
 Make sure to replace `{ /* props go here */ }` with the necessary configuration options for your payment component.
 
@@ -45,7 +44,6 @@ Here's an example of how you can integrate the SDK in a basic HTML page:
 </body>
 </html>
 ```
-
 Replace `https://example.com/ckPaysdk.js` with the correct URL or path to the SDK file in your project.
 
 ## Sample React Integration
