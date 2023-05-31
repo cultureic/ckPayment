@@ -1,6 +1,7 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import styled from 'styled-components';
+import React, { useEffect, useState } from "react";
+import ReactDOM from "react-dom";
+import styled from "styled-components";
+import { AuthProvider, useAuth } from "./auth";
 
 const ModalWrapper = styled.div`
   position: fixed;
@@ -32,6 +33,24 @@ const PayButton = styled.button`
 `;
 
 function PaymentComponent({ onPayment }) {
+  const { isAuthenticated, identity, login, backendActor, logout } = useAuth();
+  const [mssg, setMssg] = useState(null);
+
+  useEffect(() => {
+    if (!mssg) {
+      getMessage();
+    }
+  }, [mssg, backendActor, identity]);
+
+  const getMessage = async () => {
+    if (backendActor) {
+      let response = await backendActor.getMessage();
+      if (response) {
+        setMssg(response);
+      }
+    }
+  };
+
   const handlePayment = () => {
     if (onPayment) {
       onPayment();
@@ -43,7 +62,14 @@ function PaymentComponent({ onPayment }) {
       <ModalContent>
         <h2>Payment Modal</h2>
         <p>Payment details go here...</p>
-        <PayButton onClick={handlePayment}>Pay Now</PayButton>
+        {mssg && mssg}
+        <PayButton
+          onClick={async () => {
+            await login();
+          }}
+        >
+          Pay Now
+        </PayButton>
       </ModalContent>
     </ModalWrapper>
   );
@@ -55,23 +81,32 @@ const MyLibrary = {
   initialize: (containerId) => {
     modalContainer = document.getElementById(containerId);
     if (!modalContainer) {
-      throw new Error('Could not find container element');
+      throw new Error("Could not find container element");
     }
   },
   renderPaymentModal: (props, onPayment) => {
     if (!modalContainer) {
-      throw new Error('You must initialize MyLibrary with a container element before rendering the modal');
+      throw new Error(
+        "You must initialize MyLibrary with a container element before rendering the modal"
+      );
     }
 
-    ReactDOM.render(<PaymentComponent {...props} onPayment={onPayment} />, modalContainer);
+    ReactDOM.render(
+      <AuthProvider>
+        <PaymentComponent {...props} onPayment={onPayment} />
+      </AuthProvider>,
+      modalContainer
+    );
   },
   removePaymentModal: () => {
     if (!modalContainer) {
-      throw new Error('You must initialize MyLibrary with a container element before removing the modal');
+      throw new Error(
+        "You must initialize MyLibrary with a container element before removing the modal"
+      );
     }
 
     ReactDOM.unmountComponentAtNode(modalContainer);
-  }
+  },
 };
 
 export default MyLibrary;
