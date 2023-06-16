@@ -14,31 +14,25 @@ module {
 public type Invoice = {
     to : Account;
     amount : Nat;
-    id:Nat;
-    merchant:Principal;
+    itemId: Nat;
+    merchant: Principal;
   };
 
-public type NewInvoiceRequest = {
-    to : Account;
-    amount : Nat;
-    id:Nat;
-    merchant:Principal;
-};
-
 public type Item = {
-    id:Nat;
-    name:Nat;
-    cost:Float;
-    available:Bool;
-    category:Text;
-    merchant:Principal;
+    id: Nat;
+    name: Nat;
+    cost: Nat;
+    available: Bool;
+    category: Text;
+    merchant: Principal;
+    wallet: ?Subaccount; 
 };
 
 
 public type Profile = {
-    profilePicture:?Blob;
-    name:?Text;
-    description:?Text;
+    profilePicture: ?Blob;
+    name: ?Text;
+    description: ?Text;
 }
 
 
