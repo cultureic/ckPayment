@@ -190,22 +190,31 @@ public shared ({ caller }) func getInvoice(itemId : Nat) : async Result.Result<T
   ));
 };
 
-//TODO: change transfer data, do checks, etc...
-// public shared ({ caller }) func payInvoice(invoice : Types.Invoice) : async Result.Result<(), Text> {
-//   let transferResult = await CkBtcLedger.icrc1_transfer(
-//     {
-//       amount = balance - 10;
-//       from_subaccount = ?toSubaccount(caller);
-//       created_at_time = null;
-//       fee = ?10;
-//       memo = null;
-//       to = {
-//         owner = item.merchant;
-//         subaccount = item.wallet;
-//       };
-//     }
-//   );
-// };
+//TODO: this function will not work bcs icrc1_transfer will use canister as msg.caller instead of our user/caller
+public shared ({ caller }) func payInvoice(invoice : Types.Invoice) : async Result.Result<(), Text> {
+  try {
+    let transferResult = await CkBtcLedger.icrc1_transfer(
+      {
+        amount = invoice.amount;
+        from_subaccount = null;
+        created_at_time = null;
+        fee = ?10;
+        memo = null;
+        to = invoice.to
+      }
+    );
+
+    switch (transferResult) {
+      case (#Err(transferError)) {
+        return #err("Couldn't transfer funds to destination account:\n" # debug_show (transferError));
+      };
+      case (_) {};
+    };
+  } catch (error : Error) {
+    return #err("Reject message: " # Error.message(error));
+  }; 
+  #ok (); 
+};
 
 public shared ({ caller }) func buyItem(itemId : Nat) : async Result.Result<Text, Text> {
     let ?item = itemStore.get(itemId) else return #err("Can't find item");
