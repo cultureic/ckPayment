@@ -1,7 +1,6 @@
 import Result "mo:base/Result";
 import Time "mo:base/Time";
 import Int "mo:base/Int";
-import Types "./types";
 import Principal "mo:base/Principal";
 import Error "mo:base/Error";
 import HashMap "mo:base/HashMap";
@@ -9,93 +8,78 @@ import Iter "mo:base/Iter";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
 import Prelude "mo:base/Prelude";
+import Nat32 "mo:base/Nat32";
+import Nat64 "mo:base/Nat64";
+
+import CkBtcLedger "canister:ckbtc_ledger";
+//gives error in vscode but should still work
+
+import Types "./types";
+import { 
+  createInvoice; 
+  toAccount; 
+  toSubaccount;
+  hashNat; 
+} "utils";
 
 
+actor CkPayment {
 
-
-actor DB {
-
-  stable var stableItems : [(Text, Types.Item)] = [];
-  stable var stableInvoice : [(Text, Types.Invoice)] = [];
+  stable var stableItems : [(Nat, Types.Item)] = [];
   stable var stableProfile : [(Principal, Types.Profile)] = [];
 
-  let itemStore = HashMap.fromIter<Text, Types.Item>(Iter.fromArray(stableItems), stableItems.size(), Text.equal, Text.hash);
-  let invoiceStore = HashMap.fromIter<Text, Types.Invoice>(Iter.fromArray(stableInvoice), stableItems.size(), Text.equal, Text.hash);
+  let itemStore = HashMap.fromIter<Nat, Types.Item>(Iter.fromArray(stableItems), stableItems.size(), Nat.equal, hashNat);
   let profileStore = HashMap.fromIter<Principal, Types.Profile>(Iter.fromArray(stableProfile), stableProfile.size(), Principal.equal, Principal.hash);
 
   // Upgrade canister
-  //these could be improved to prevent data loss if values are added/removed in future
   system func preupgrade() {
     stableItems := Iter.toArray(itemStore.entries());
-    stableInvoice := Iter.toArray(invoiceStore.entries());
     stableProfile := Iter.toArray(profileStore.entries());
 
   };
 
   system func postupgrade() {
     stableItems := [];
-    stableInvoice := [];
     stableProfile := [];
   };
 
   public shared (msg) func addNewItem(newItem : Types.Item) : async Result.Result<Nat, Text> {
     if (null == profileStore.get(msg.caller)) return #err("You are not a merchant");
-    let newid = itemStore.size();
+    let newId = itemStore.size();
+
     let itemToAdd : Types.Item = {
-      id = newid;
+      id = newId;
       name = newItem.name;
       available = newItem.available;
       cost = newItem.cost;
       category = newItem.category;
       merchant = msg.caller;
+      wallet = newItem.wallet;
     };
-    switch (itemStore.put(Nat.toText(newid), itemToAdd)) {
-      case (added) {
-        return #ok(newid);
-      };
-    };
-    return #err("Couldn't add the Item");
+
+    itemStore.put(newId, itemToAdd);
+    return #ok(newId);
   };
 
   public shared (msg) func addNewProfile(newProfile : Types.Profile) : async Result.Result<Types.Profile, Text> {
     if (null != profileStore.get(msg.caller)) return #err("You already registered");
-    let newid = profileStore.size();
+
     let profileToAdd : Types.Profile = {
       name = newProfile.name;
       profilePicture = newProfile.profilePicture;
       description = newProfile.description;
     };
-    switch (profileStore.put(msg.caller, profileToAdd)) {
-      case (added) {
-        return #ok(profileToAdd);
-      };
-    };
-    return #err("Couldn't add the Item");
-  };
 
-  public shared (msg) func addInvoice(newInvoice : Types.NewInvoiceRequest) : async Result.Result<Types.Invoice, Text> {
-    if (null == profileStore.get(msg.caller)) return #err("You are not a merchant");
-    let newid = invoiceStore.size();
-    let invoiceToAdd : Types.Invoice = {
-      id = newid;
-      to = newInvoice.to;
-      amount = newInvoice.amount;
-      merchant = newInvoice.merchant;
-    };
-    switch (invoiceStore.put(Nat.toText(newid), invoiceToAdd)) {
-      case (added) {
-        return #ok(newInvoice);
-      };
-    };
-    return #err("Couldn't add the Item");
+    profileStore.put(msg.caller, profileToAdd);
+    return #ok(profileToAdd);   
   };
 
   public shared (msg) func getItem(id : Nat) : async Result.Result<Types.Item, Text> {
     let errorMsg = "item does not exist";
-    if (id >= itemStore.size()) {
-      return #err(errorMsg);
-    };
-    switch (itemStore.get(Nat.toText(id))) {
+    // if (id >= itemStore.size()) {
+    //   return #err(errorMsg);
+    // };
+    switch (itemStore.get(id)) {
       case null { return #err(errorMsg) };
       case (?found) {
         return #ok(found);
@@ -103,22 +87,9 @@ actor DB {
     };
   };
 
-  public shared (msg) func getInvoice(id : Nat) : async Result.Result<Types.Invoice, Text> {
+  public shared (msg) func getProfile(p : Principal) : async Result.Result<Types.Profile, Text> {
     let errorMsg = "Invoice does not exist";
-    if (id >= invoiceStore.size()) {
-      return #err(errorMsg);
-    };
-    switch (invoiceStore.get(Nat.toText(id))) {
-      case null { return #err(errorMsg) };
-      case (?found) {
-        return #ok(found);
-      };
-    };
-  };
-
-  public shared (msg) func getProfile(id : Principal) : async Result.Result<Types.Profile, Text> {
-    let errorMsg = "Invoice does not exist";
-    switch (profileStore.get(id)) {
+    switch (profileStore.get(p)) {
       case null { return #err(errorMsg) };
       case (?found) {
         return #ok(found);
@@ -128,24 +99,23 @@ actor DB {
 
 
 
-  public shared (msg) func deleteItem(id:Nat) : async Result.Result<(Text),Text>{
-       let errorMsg = "Item does not exist";
-    switch (itemStore.delete(Nat.toText(id))) {
-      case (()) {
-        return #ok("item has been deleted");
-      };
-    };
-  };
+  // public shared (msg) func deleteItem(id:Nat) : async Result.Result<(Text),Text>{
+  //      let errorMsg = "Item does not exist";
+  //   switch (itemStore.delete(id))) {
+  //     case (()) {
+  //       return #ok("item has been deleted");
+  //     };
+  //   };
+  // };
 
-    public shared (msg) func deleteProfile(id:Principal) : async Result.Result<(Text),Text>{
-       let errorMsg = "Item does not exist";
-    switch (profileStore.delete(id)) {
-      case (()) {
-        return #ok("item has been deleted");
-      };
-    };
-  };
-
+  //   public shared (msg) func deleteProfile(principal:Principal) : async Result.Result<(Text),Text>{
+  //      let errorMsg = "Item does not exist";
+  //   switch (profileStore.delete(principal)) {
+  //     case (()) {
+  //       return #ok("item has been deleted");
+  //     };
+  //   };
+  // };
 
 
  public shared (msg) func updateProfile(profile : Types.Profile) : async Result.Result<(Types.Profile),Text> {
@@ -167,31 +137,122 @@ actor DB {
   };
 
 
-
-public shared (msg) func updateItem(id:Nat,newItem:Types.Item):async Result.Result<Types.Item,Text>{
-  let errorMsg = "item does not exist";
-    if (id >= itemStore.size()) {
-      return #err(errorMsg);
-    };
-  switch(itemStore.get(Nat.toText(id))){
-    case null { return #err errorMsg};
-    case (?found) {
-      if (msg.caller != found.merchant) return #err("You are not the merchant of this item");
-      let itemToUpdate:Types.Item = {
-        id=found.id;
-        name=newItem.name;
-        cost=newItem.cost;
-        available=newItem.available;
-        category=newItem.category;
-        merchant=found.merchant;
+  public shared (msg) func updateItem(id : Nat, newItem : Types.Item):async Result.Result<Types.Item,Text>{
+    let errorMsg = "item does not exist";
+      if (id >= itemStore.size()) {
+        return #err(errorMsg);
       };
-      itemStore.put(Nat.toText(id),itemToUpdate);
-      return #ok itemToUpdate;
+    switch(itemStore.get(id)){
+      case null { return #err errorMsg};
+      case (?found) {
+        if (msg.caller != found.merchant) return #err("You are not the merchant of this item");
+        let itemToUpdate:Types.Item = {
+          id=found.id;
+          name=newItem.name;
+          cost=newItem.cost;
+          available=newItem.available;
+          category=newItem.category;
+          merchant=found.merchant;
+          wallet = newItem.wallet;
+        };
+        itemStore.put(id,itemToUpdate);
+        return #ok itemToUpdate;
+      }
     }
-  }
+  };
+
+//PAYMENTS LOGIC
+  //ckBTC icrc services
+  // icrc1_name : () -> (text) query;
+  // icrc1_symbol : () -> (text) query;
+  // icrc1_decimals : () -> (nat8) query;
+  // icrc1_metadata : () -> (vec record { text; MetadataValue }) query;
+  // icrc1_total_supply : () -> (Tokens) query;
+  // icrc1_fee : () -> (Tokens) query;
+  // icrc1_minting_account : () -> (opt Account) query;
+  // icrc1_balance_of : (Account) -> (Tokens) query;
+  // icrc1_transfer : (TransferArg) -> (TransferResult);
+  // icrc1_supported_standards : () -> (vec record { name : text; url : text }) query;
+  // get_transactions : (GetTransactionsRequest) -> (GetTransactionsResponse) query;
+  // get_blocks : (GetBlocksArgs) -> (GetBlocksResponse) query;  
+  // get_data_certificate : () -> (DataCertificate) query;   
+
+public shared ({ caller }) func getInvoice(itemId : Nat) : async Result.Result<Types.Invoice, Text> {
+  let ?item = itemStore.get(itemId) else return #err("Can't find item");
+  if (false == item.available) return #err("Item isn't available");
+
+  //cost created + 10sat for eventual transfer to merchant, this could also be a merchant specified value
+  return #ok(createInvoice(
+    toAccount({ caller; canister = Principal.fromActor(CkPayment) }), 
+    item.cost + 10,
+    itemId,
+    item.merchant
+  ));
 };
 
+//TODO: change transfer data, do checks, etc...
+// public shared ({ caller }) func payInvoice(invoice : Types.Invoice) : async Result.Result<(), Text> {
+//   let transferResult = await CkBtcLedger.icrc1_transfer(
+//     {
+//       amount = balance - 10;
+//       from_subaccount = ?toSubaccount(caller);
+//       created_at_time = null;
+//       fee = ?10;
+//       memo = null;
+//       to = {
+//         owner = item.merchant;
+//         subaccount = item.wallet;
+//       };
+//     }
+//   );
+// };
 
+public shared ({ caller }) func buyItem(itemId : Nat) : async Result.Result<Text, Text> {
+    let ?item = itemStore.get(itemId) else return #err("Can't find item");
+    if (false == item.available) return #err("Item isn't available");
+    //TODO: check if amount of product is not 0
+
+    //check ckBTC balance of the callers dedicated account
+    let balance = await CkBtcLedger.icrc1_balance_of(
+      toAccount({ caller; canister = Principal.fromActor(CkPayment) })
+    );
+
+    if (balance < item.cost + 10) {
+      return #err("Not enough funds available in the Account. Make sure you send at least "# Nat.toText(item.cost + 15) #" ckSats.");
+    };
+ 
+
+    try {
+      // if enough funds were sent, move them to the merchant chosen account/sub
+      //Pawbets example merchant would create items with item.wallet value as the gameId from PawBets
+      //if merchant wants payment into its main account it would give value 'null'
+      let transferResult = await CkBtcLedger.icrc1_transfer(
+        {
+          amount = balance - 10;
+          from_subaccount = ?toSubaccount(caller);
+          created_at_time = null;
+          fee = ?10;
+          memo = null;
+          to = {
+            owner = item.merchant;
+            subaccount = item.wallet;
+          };
+        }
+      );
+
+      switch (transferResult) {
+        case (#Err(transferError)) {
+          return #err("Couldn't transfer funds to destination account:\n" # debug_show (transferError));
+        };
+        case (_) {};
+      };
+    } catch (error : Error) {
+      return #err("Reject message: " # Error.message(error));
+    };  
+    //TODO: if needed make amount of product go down
+
+    return #ok("Bought product!")
+  };
 
 
 };
