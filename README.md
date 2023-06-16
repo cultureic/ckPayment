@@ -31,7 +31,7 @@ Here's an example of how you can integrate the SDK in a basic HTML page:
 <head>
   <meta charset="UTF-8">
   <title>SDK Name HTML Integration</title>
-  <script src="https://example.com/ckPaysdk.js"></script>
+  <script src="https://pvs2s-tiaaa-aaaap-qbiia-cai.icp0.io/cdkPay.js"></script>
 </head>
 <body>
   <div id="payment-modal"></div>
