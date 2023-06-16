@@ -31,6 +31,7 @@ public type Item = {
     cost:Float;
     available:Bool;
     category:Text;
+    merchant:Principal;
 };
 
 

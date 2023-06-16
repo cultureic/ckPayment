@@ -39,7 +39,7 @@ actor DB {
   };
 
   public shared (msg) func addNewItem(newItem : Types.Item) : async Result.Result<Nat, Text> {
-
+    if (null == profileStore.get(msg.caller)) return #err("You are not a merchant");
     let newid = itemStore.size();
     let itemToAdd : Types.Item = {
       id = newid;
@@ -47,6 +47,7 @@ actor DB {
       available = newItem.available;
       cost = newItem.cost;
       category = newItem.category;
+      merchant = msg.caller;
     };
     switch (itemStore.put(Nat.toText(newid), itemToAdd)) {
       case (added) {
@@ -57,6 +58,7 @@ actor DB {
   };
 
   public shared (msg) func addNewProfile(newProfile : Types.Profile) : async Result.Result<Types.Profile, Text> {
+    if (null != profileStore.get(msg.caller)) return #err("You already registered");
     let newid = profileStore.size();
     let profileToAdd : Types.Profile = {
       name = newProfile.name;
@@ -72,6 +74,7 @@ actor DB {
   };
 
   public shared (msg) func addInvoice(newInvoice : Types.NewInvoiceRequest) : async Result.Result<Types.Invoice, Text> {
+    if (null == profileStore.get(msg.caller)) return #err("You are not a merchant");
     let newid = invoiceStore.size();
     let invoiceToAdd : Types.Invoice = {
       id = newid;
@@ -148,14 +151,7 @@ actor DB {
  public shared (msg) func updateProfile(profile : Types.Profile) : async Result.Result<(Types.Profile),Text> {
     switch (profileStore.get(msg.caller)) {
       case null {
-        let imgBlob : ?Blob = profile.profilePicture;
-        let newProfile : Types.Profile = {
-          name = profile.name;
-          profilePicture = imgBlob;
-          description=profile.description;
-        };
-        profileStore.put(msg.caller, newProfile);
-        return #ok newProfile
+        return #err("Profile not found")
       };
       case (?found) {
         let imgBlob : ?Blob = profile.profilePicture;
@@ -180,12 +176,14 @@ public shared (msg) func updateItem(id:Nat,newItem:Types.Item):async Result.Resu
   switch(itemStore.get(Nat.toText(id))){
     case null { return #err errorMsg};
     case (?found) {
+      if (msg.caller != found.merchant) return #err("You are not the merchant of this item");
       let itemToUpdate:Types.Item = {
-        id=id;
+        id=found.id;
         name=newItem.name;
         cost=newItem.cost;
         available=newItem.available;
         category=newItem.category;
+        merchant=found.merchant;
       };
       itemStore.put(Nat.toText(id),itemToUpdate);
       return #ok itemToUpdate;
