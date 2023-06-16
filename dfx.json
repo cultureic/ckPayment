@@ -2,7 +2,21 @@
   "canisters": {
     "payment_backend": {
       "main": "src/payment_backend/main.mo",
-      "type": "motoko"
+      "type": "motoko",
+      "dependencies": [
+        "ckbtc_ledger"
+      ]
+    },
+    "ckbtc_ledger": {
+      "type": "custom",
+      "wasm": "src/payment_backend/icrc/icrc1.wasm",
+      "candid": "src/payment_backend/icrc/icrc1.public.did",
+      "remote" : {
+        "candid": "src/payment_backend/icrc/icrc1.public.did",
+        "id": {
+          "ic" : "mxzaz-hqaaa-aaaar-qaada-cai"
+        }
+      }
     },
     "payment_frontend": {
       "dependencies": [
@@ -20,6 +34,7 @@
   },
   "defaults": {
     "build": {
+      "args": "",
       "packtool": "mops sources"
     }
   },
