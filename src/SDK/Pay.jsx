@@ -44,7 +44,9 @@ function PaymentComponent({ onPayment }) {
 
   const getMessage = async () => {
     if (backendActor) {
-      let response = await backendActor.getMessage();
+      console.log("backendactor",backendActor)
+      let response = await backendActor.whoami();
+      console.log("who am i",response)
       if (response) {
         setMssg(response);
       }

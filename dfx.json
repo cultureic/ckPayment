@@ -7,6 +7,16 @@
         "ckbtc_ledger"
       ]
     },
+    "internet_identity": {
+      "type": "custom",
+      "candid": "src/payment_backend/internet_identity/internet_identity.did",
+      "wasm": "src/payment_backend/internet_identity/internet_identity_dev.wasm",
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      }
+    },
     "ckbtc_ledger": {
       "type": "custom",
       "wasm": "src/payment_backend/icrc/icrc1.wasm",
@@ -20,8 +30,9 @@
     },
     "payment_frontend": {
       "dependencies": [
-        "payment_backend"
-      ],
+        "payment_backend",
+        "internet_identity"
+        ],
       "frontend": {
         "entrypoint": "src/payment_frontend/src/index.html"
       },

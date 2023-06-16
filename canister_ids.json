@@ -1,0 +1,8 @@
+{
+  "payment_backend": {
+    "ic": "nipu2-aaaaa-aaaap-qbihq-cai"
+  },
+  "payment_frontend": {
+    "ic": "pvs2s-tiaaa-aaaap-qbiia-cai"
+  }
+}

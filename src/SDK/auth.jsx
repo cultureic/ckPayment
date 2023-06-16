@@ -17,7 +17,12 @@ const defaultOptions = {
    * @type {import("@dfinity/auth-client").AuthClientLoginOptions}
    */
   loginOptions: {
-    identityProvider: "https://identity.ic0.app/#authorize",
+    identityProvider:
+      process.env.DFX_NETWORK === "ic"
+        ?
+        "https://identity.ic0.app/#authorize":
+        `http://localhost:4943?canisterId=${process.env.CANISTER_ID_INTERNET_IDENTITY}#authorize`
+       ,
   },
 };
 
@@ -57,6 +62,7 @@ export const useAuthClient = (options = defaultOptions) => {
     setIsAuthenticated(isAuthenticated);
 
     const identity = client.getIdentity();
+    console.log("getting identity",identity)
     setIdentity(identity);
 
     const principal = identity.getPrincipal();
