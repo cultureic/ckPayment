@@ -60,7 +60,6 @@ Here's an example of how you can integrate the SDK in a React application:
   import React from 'react'
 import { createRoot } from 'react-dom/client'
 
-let PaymentModule
 
 window.onload = function () {
   ckPaySDK.PaymentComponent.initialize('payment-modal')

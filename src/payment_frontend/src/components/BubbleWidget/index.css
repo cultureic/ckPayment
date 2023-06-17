@@ -1,0 +1,40 @@
+.bubble-widget {
+    position: relative;
+    width: 100px;
+    height: 100px;
+  }
+  
+  .bubble-icon {
+    fill: #f00; /* Change color as per your preference */
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+  
+  .bubble-content {
+    position: absolute;
+    width: 200px;
+    height: 100px;
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 10px;
+    bottom: 120px;
+    left: -50px;
+    border: 1px solid #000;
+    text-align: center;
+  }
+  
+  .bubble-content::before {
+    content: "";
+    position: absolute;
+    bottom: -20px;
+    left: 80px;
+    border-width: 20px 20px 0;
+    border-style: solid;
+    border-color: #fff transparent transparent;
+  }
+  
+  button {
+    margin-top: 10px;
+  }
+  

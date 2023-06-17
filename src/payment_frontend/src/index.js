@@ -1,42 +1,55 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
+import React, { createContext, useState, useContext } from 'react';
+import { createRoot } from 'react-dom/client';
+import { AuthProvider, useAuth } from "./auth";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import Modal from "./components/Modal";
+import "./index.css";
 
-let PaymentModule
 
-window.onload = function () {
-  ckPaySDK.PaymentComponent.initialize('payment-modal')
-}
+// Create a new context for the modal
+export const ModalContext = createContext();
 
-const App = () => {
-  const handlePayment = () => {
-    console.log('payment has been handle')
+// Create a provider for the modal context
+const ModalProvider = ({ children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  function openModal() {
+    setIsOpen(true);
   }
 
-  const startPaymentFlow = () => {
-    ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
-      console.log('Payment complete')
-      // hide the modal when payment is done
-      ckPaySDK.PaymentComponent.removePaymentModal()
-    })
+  function closeModal() {
+    setIsOpen(false);
   }
 
   return (
+    <ModalContext.Provider value={{ isOpen, openModal, closeModal }}>
+      {children}
+    </ModalContext.Provider>
+  );
+};
+
+const App = () => {
+  return (
     <div>
-      <h1>hello world</h1>
-      <button
-        onClick={() => {
-          ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
-            ckPaySDK.PaymentComponent.removePaymentModal()
-          })
-        }}
-      >
-        Pay in BTC
-      </button>
+      <Router>
+        <Routes>
+          <Route path="" element={<Home />} />
+        </Routes>
+      </Router>
+      <Modal />
     </div>
-  )
-}
+  );
+};
 
-const container = document.getElementById('app')
-const root = createRoot(container)
 
-root.render(<App />)
+const container = document.getElementById('app');
+const root = createRoot(container);
+
+root.render(
+  <AuthProvider>
+    <ModalProvider>
+      <App />
+    </ModalProvider>
+  </AuthProvider>
+);
