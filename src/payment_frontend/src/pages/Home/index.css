@@ -1,0 +1,164 @@
+:root {
+    --primary-light: #D3D3D3;
+    --primary-dark: #202020;
+    --secondary: #FF0000;
+    --background: #FFFFFF;
+    --transparent: transparent;
+}
+
+
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: var(--background);
+}
+
+.app-title {
+    font-size: 1.5em;
+    color: var(--primary-dark);
+    transition: transform 0.3s ease-in-out;
+}
+
+.app-title:hover {
+    transform: scale(1.05);
+    animation: jello-horizontal 0.9s both;
+}
+
+.nav-toggle {
+    display: none;
+    font-size: 1.5em;
+    background: none;
+    border: none;
+    color: var(--primary-dark);
+}
+
+.app-nav {
+    display: flex;
+    list-style: none;
+}
+
+.app-nav a {
+    color: var(--primary-dark);
+    text-decoration: none;
+    margin-left: 20px;
+    transition: color 0.3s ease-in-out;
+}
+
+.app-nav a:hover {
+    color: var(--secondary);
+    animation: jello-horizontal 0.9s both;
+}
+
+.app-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 400px;
+    background: var(--background);
+    color: var(--primary-dark);
+}
+
+.app-hero h2 {
+    font-size: 2em;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: .15em solid transparent; /* Making the caret transparent */
+    width: 30ch;
+    animation: type 2s steps(30, end), /* Typewriter Effect */
+               blink-caret 0s step-end 3.9s, /* Hide the caret after 3.9s */
+               blink-caret 0s step-end 5s; /* Make sure the caret stays hidden */
+}
+
+
+
+.app-hero p {
+    font-size: 1.1em;
+    max-width: 800px;
+    text-align: center;
+}
+
+.app-hero button {
+    padding: 15px 25px;
+    background: var(--secondary);
+    color: var(--background);
+    border: none;
+    border-radius: 5px;
+    margin-top: 20px;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: background 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.app-hero button:hover {
+    background: var(--primary-dark);
+    transform: scale(1.05);
+    animation: heartBeat 0.5s both;
+}
+
+@keyframes type {
+    0% { border-right: .15em solid var(--primary-dark); width: 0; }
+    100% { border-right: .15em solid var(--transparent); width: 30ch; } /* Adjust the value 15ch to match the width of your text */
+}
+
+@keyframes jello-horizontal {
+    0% { transform: scale3d(1, 1, 1); }
+    30% { transform: scale3d(1.25, 0.75, 1); }
+    40% { transform: scale3d(0.75, 1.25, 1); }
+    50% { transform: scale3d(1.15, 0.85, 1); }
+    65% { transform: scale3d(.95, 1.05, 1); }
+    75% { transform: scale3d(1.05, .95, 1); }
+    100% { transform: scale3d(1, 1, 1); }
+}
+
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    14% { transform: scale(1.3); }
+    28% { transform: scale(1); }
+    42% { transform: scale(1.3); }
+    70% { transform: scale(1); }
+}
+
+@media (max-width: 768px) {
+    .nav-toggle {
+        display: block;
+    }
+
+    .app-nav {
+        display: none;
+    }
+
+    .app-nav.open {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .app-hero h2 {
+        font-size: 1.1em; /* 3 times smaller than the original 2em */
+    }
+
+    .app-hero p {
+        font-size: 0.8em; /* 3 times smaller than the original 1.1em */
+    }
+
+    .app-hero button {
+        font-size: 0.8em; /* 3 times smaller than the original 1.1em */
+    }
+
+    /* Your CSS file */
+
+.my-image {
+    width: 100%;
+    height: auto;
+  }
+
+  @media (max-width: 768px) {
+    .my-image {
+      width: 50%;
+    }
+  }
+
+}
