@@ -25,9 +25,84 @@ import {
   toSubaccount;
   hashNat; 
 } "utils";
+import Blob "mo:base/Blob";
 
 
 actor CkPayment {
+
+  type Bitcoin_Address = Text;
+  type Satoshi = Nat64;
+
+  type Outpoint = {
+    txid:Blob;
+    vout:Nat32;
+  };
+
+  type Bitcoin_Network = {
+    #mainnet;
+    #testnet;
+  };
+
+  type Filter = {
+    min_confirmations:Nat32;
+    page:Blob;
+  };
+
+  type Utxos = {
+    outpoint:Outpoint;
+    value:Satoshi;
+    height:Nat32;
+  };
+
+  type Blob_hash = Blob;
+
+/*type get_utxos_request = record {
+  address : bitcoin_address;
+  network: bitcoin_network;
+  filter: opt variant {
+    min_confirmations: nat32;
+    page: blob;
+  };
+}
+
+type get_utxos_response = record {
+  utxos: vec utxo;
+  tip_block_hash: block_hash;
+  tip_height: nat32;
+  next_page: opt blob;
+};*/
+
+
+type Get_utxos_response = {
+  utxos:[Utxos];
+  tip_block_hash:Blob_hash;
+  tip_height:Nat32;
+  next_page:?Blob;
+};
+
+
+type Get_utxos_request = {
+  addres:Bitcoin_Address;
+  network:Bitcoin_Network;
+  filter:?Filter;
+};
+
+
+
+  type IC = actor {
+    ecdsa_public_key : ({
+      canister_id : ?Principal;
+      derivation_path : [Blob];
+      key_id : { curve: { #secp256k1; } ; name: Text };
+    }) -> async ({ public_key : Blob; chain_code : Blob; });
+    sign_with_ecdsa : ({
+      message_hash : Blob;
+      derivation_path : [Blob];
+      key_id : { curve: { #secp256k1; } ; name: Text };
+    }) -> async ({ signature : Blob });
+  };
+
+  let ic : IC = actor("aaaaa-aa");
 
   type CkMinter =  CkMinter.CkMinter;
 
