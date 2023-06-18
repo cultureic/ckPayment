@@ -6,6 +6,7 @@ import BTC_State from "../../../assets/btc_station.png"
 import BubbleWidget from '../../components/BubbleWidget';
 import Header from '../../components/Header';
 import {useAuth} from "../../auth";
+import ckPay from '../../../../../ckPay';
 
 
 
@@ -65,7 +66,9 @@ function Home() {
     const{login,logout,backendActor,isAuthenticated,principal} = useAuth();
     const [isNavOpen, setIsNavOpen] = useState(false);
 
-    const startPaymentFlow = () => {
+    const startPaymentFlow = async () => {
+     //let response1= await ckPaySDK.PaymentComponent.addProfile();
+      //let response = await ckPaySDK.PaymentComponent.addItem();
         ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
           console.log('Payment complete')
           // hide the modal when payment is done

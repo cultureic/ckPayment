@@ -11,7 +11,11 @@ import Prelude "mo:base/Prelude";
 import Nat32 "mo:base/Nat32";
 import Nat64 "mo:base/Nat64";
 
+import CkMinter "./CkMinter";
+
 import CkBtcLedger "canister:ckbtc_ledger";
+
+
 //gives error in vscode but should still work
 
 import Types "./types";
@@ -25,6 +29,8 @@ import {
 
 actor CkPayment {
 
+  type CkMinter =  CkMinter.CkMinter;
+
   stable var stableItems : [(Nat, Types.Item)] = [];
   stable var stableProfile : [(Principal, Types.Profile)] = [];
 
@@ -35,7 +41,6 @@ actor CkPayment {
   system func preupgrade() {
     stableItems := Iter.toArray(itemStore.entries());
     stableProfile := Iter.toArray(profileStore.entries());
-
   };
 
   system func postupgrade() {
@@ -43,7 +48,27 @@ actor CkPayment {
     stableProfile := [];
   };
 
-  public shared (msg) func addNewItem(newItem : Types.Item) : async Result.Result<Nat, Text> {
+  public shared(msg) func mintBTC():async Result.Result<Text,Text>{
+            let ckMinter = actor("mqygn-kiaaa-aaaar-qaadq-cai"): CkMinter;
+            let caller = msg.caller;
+            try{
+                let address:Text = await ckMinter.get_btc_address(
+                        toAccount({ caller; canister = Principal.fromActor(CkPayment) })
+                );
+                return #ok address;
+            } catch(e) {
+                return #err "failed to BTC grab address"
+            }
+  };
+
+
+
+
+  public shared (msg) func whoami():async Text{
+      return Principal.toText(msg.caller);
+  };
+
+  public shared (msg) func addNewItem(newItem : Types.NewItemRequest) : async Result.Result<Nat, Text> {
     if (null == profileStore.get(msg.caller)) return #err("You are not a merchant");
     let newId = itemStore.size();
 
@@ -54,7 +79,7 @@ actor CkPayment {
       cost = newItem.cost;
       category = newItem.category;
       merchant = msg.caller;
-      wallet = newItem.wallet;
+      wallet = null;
     };
 
     itemStore.put(newId, itemToAdd);

@@ -2,28 +2,86 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import styled,{css} from "styled-components";
 import { AuthProvider, useAuth } from "./auth";
+import { addItem,addProfile } from "./interfaceHook";
 
 
 
 
-const SVGLogo = ({address}) => (
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="240" style={{ filter: 'drop-shadow(2px 2px 1px rgba(0,0,0,0.1))' }}>
+
+
+const SVGLogo = ({ address, loading }) => {
+  useEffect(() => {}, [address]);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {loading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+            zIndex: 999,
+          }}
+        >
+          <div className="spinner" />
+        </div>
+      )}
+
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="400"
+        height="240"
+        style={{ filter: loading ? 'blur(5px)' : 'drop-shadow(2px 2px 1px rgba(0,0,0,0.1))' }}
+      >
         <defs>
-            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" style={{ stopColor:'#F7931A', stopOpacity:1 }} />
-                <stop offset="100%" style={{ stopColor:'#F7931A', stopOpacity:0.7 }} />
-            </linearGradient>
+          <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style={{ stopColor: '#F7931A', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: '#F7931A', stopOpacity: 0.7 }} />
+          </linearGradient>
         </defs>
         <rect width="400" height="240" rx="20" fill="url(#grad1)" />
-        <text x="40" y="120" fill="#4D4D4D" fontSize="24">{address}</text>
-        <text x="40" y="160" fill="#4D4D4D" fontSize="20">Card Holder</text>
-        <text x="280" y="220" fill="#4D4D4D" fontSize="20">BTC</text>
+
+        {/* Card Background */}
+        <rect x="20" y="40" width="360" height="160" rx="16" fill="#fff" />
+
+        {/* Shiny Gradient Overlay */}
+        <defs>
+          <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style={{ stopColor: 'rgba(255, 255, 255, 0.6)', stopOpacity: 1 }} />
+            <stop offset="100%" style={{ stopColor: 'rgba(255, 255, 255, 0)', stopOpacity: 1 }} />
+          </linearGradient>
+        </defs>
+        <rect x="20" y="40" width="360" height="160" rx="16" fill="url(#grad2)" />
+
+        {/* Card Details */}
+        <text x="40" y="120" fill="#4D4D4D" fontSize="24">
+          {address}
+        </text>
+        <text x="40" y="160" fill="#4D4D4D" fontSize="20">
+          Card Holder
+        </text>
+        <text x="280" y="220" fill="#4D4D4D" fontSize="20">
+          BTC
+        </text>
         <rect x="40" y="50" width="60" height="40" fill="#4D4D4D" />
-        <line x1="40" y1="70" x2="100" y2="70" style={{ stroke:'#F7931A', strokeWidth:2 }} />
-        <line x1="40" y1="80" x2="100" y2="80" style={{ stroke:'#F7931A', strokeWidth:2 }} />
-        <text x="40" y="200" fill="#4D4D4D" fontSize="20">Exp: 12/24</text>
-    </svg>
-);
+        <line x1="40" y1="70" x2="100" y2="70" style={{ stroke: '#F7931A', strokeWidth: 2 }} />
+        <line x1="40" y1="80" x2="100" y2="80" style={{ stroke: '#F7931A', strokeWidth: 2 }} />
+        <text x="40" y="200" fill="#4D4D4D" fontSize="20">
+          Exp: 12/24
+        </text>
+      </svg>
+    </div>
+  );
+};
+
+
+
 
 const SVGPlaceholder = ({ data }) => {
   useEffect(()=>{
@@ -138,17 +196,23 @@ const PaymentComponent = ({ onPayment, style, classes, logo, removePaymentModal,
   const [mssg, setMssg] = useState(null);
   const [step, setStep] = useState(0);
 
+
+  useEffect(()=>{
+    getMessage();
+  },[isAuthenticated,backendActor])
+
   useEffect(() => {
     if (!mssg) {
       getMessage();
     }
-  }, [mssg, backendActor, identity]);
+  }, [mssg, backendActor, identity,isAuthenticated]);
 
   const getMessage = async () => {
     if (backendActor) {
-      let response = await backendActor.whoami();
+      let response = await backendActor.mintBTC();
+      console.log("address to mint BTC",response)
       if (response) {
-        setMssg(response);
+        setMssg(response.ok);
       }
     }
   };
@@ -165,8 +229,8 @@ const PaymentComponent = ({ onPayment, style, classes, logo, removePaymentModal,
     <ModalWrapper className={classes.modalWrapper} style={style.modalWrapper}>
       <ModalContent className={classes.modalContent} style={style.modalContent}>
         <CloseButton onClick={removePaymentModal}>X</CloseButton>
-        <SVGLogo address={mssg} />
-        {step === 0 && <Login handleNextStep={handleNextStep} data={data} />}
+        <SVGLogo address={mssg} loading={true} />
+        {step === 0 && <Login handleNextStep={handleNextStep} data={data} isAuthenticated={isAuthenticated} login={login} logout={logout} />}
         {step === 1 && <SelectPaymentMethod handleNextStep={handleNextStep} handlePreviousStep={handlePreviousStep} data={data} />}
         {step === 2 && <ConfirmPaymentDetails handleNextStep={handleNextStep} handlePreviousStep={handlePreviousStep} data={data} />}
         {step === 3 && <ProcessPayment handleNextStep={handleNextStep} data={data} />}
@@ -177,11 +241,12 @@ const PaymentComponent = ({ onPayment, style, classes, logo, removePaymentModal,
   }
 
 
-  const Login = ({ handleNextStep, removePaymentModal,data }) => {
+  const Login = ({ handleNextStep, removePaymentModal,data,isAuthenticated,login,logout }) => {
     return (
       <div>
-        <h2>Login</h2>
-        <SVGPlaceholder data={data} />
+        {!!!isAuthenticated && <h2 onClick={async ()=>{await login()}}>Login</h2>}
+        {!!isAuthenticated && <h2 onClick={async ()=>{await logout()}}>Logout</h2>}
+
         <ButtonContainer>
           <CancelButton onClick={removePaymentModal}>Cancel</CancelButton>
           <button onClick={handleNextStep}>Next</button>
@@ -281,6 +346,8 @@ const MyLibrary = {
 
     ReactDOM.unmountComponentAtNode(modalContainer);
   },
+  addItem,
+  addProfile
 };
 
 export default MyLibrary;

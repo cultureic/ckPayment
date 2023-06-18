@@ -1,8 +1,3 @@
-import { AuthClient } from "@dfinity/auth-client";
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { canisterId, createActor } from "../declarations/payment_backend";
-
-const AuthContext = createContext(null);
 
 const defaultOptions = {
   /**
@@ -26,24 +21,31 @@ const defaultOptions = {
   },
 };
 
-/**
- *
- * @param options - Options for the AuthClient
- * @param {AuthClientCreateOptions} options.createOptions - Options for the AuthClient.create() method
- * @param {AuthClientLoginOptions} options.loginOptions - Options for the AuthClient.login() method
- * @returns
- */
+
+
+import { AuthClient } from "@dfinity/auth-client";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { canisterId, createActor } from "../declarations/payment_backend";
+
+export const AuthContext = createContext(null);
+
+// Global state
+let globalAuthClient;
+let globalState;
+
+
+
 export const useAuthClient = (options = defaultOptions) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authClient, setAuthClient] = useState(null);
   const [identity, setIdentity] = useState(null);
   const [principal, setPrincipal] = useState(null);
-  const [backendActor, setbackendActor] = useState(null);
+  const [backendActor, setBackendActor] = useState(null);
 
   useEffect(() => {
-    console.log("what sup");
-    // Initialize AuthClient
     AuthClient.create(options.createOptions).then(async (client) => {
+      globalAuthClient = client;
+      setAuthClient(client);
       updateClient(client);
     });
   }, []);
@@ -62,7 +64,6 @@ export const useAuthClient = (options = defaultOptions) => {
     setIsAuthenticated(isAuthenticated);
 
     const identity = client.getIdentity();
-    console.log("getting identity",identity)
     setIdentity(identity);
 
     const principal = identity.getPrincipal();
@@ -76,7 +77,8 @@ export const useAuthClient = (options = defaultOptions) => {
       },
     });
 
-    setbackendActor(actor);
+    globalState = {actor,principal,isAuthenticated};
+    setBackendActor(actor);
   }
 
   async function logout() {
@@ -95,12 +97,23 @@ export const useAuthClient = (options = defaultOptions) => {
   };
 };
 
-/**
- * @type {React.FC}
- */
 export const AuthProvider = ({ children }) => {
   const auth = useAuthClient();
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);
+
+export const getGlobalState = () => {
+  if (!globalState) {
+    throw new Error("Not authenticated");
+  }
+  return globalState;
+};
+
+export const getGlobalAuthClient = () => {
+  if (!globalAuthClient) {
+    throw new Error("Not initialized");
+  }
+  return globalAuthClient;
+};
