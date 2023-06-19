@@ -20,7 +20,7 @@ public type Invoice = {
 
 public type Item = {
     id: Nat;
-    name: Nat;
+    name: Text;
     cost: Nat;
     available: Bool;
     category: Text;
@@ -28,11 +28,19 @@ public type Item = {
     wallet: ?Subaccount; 
 };
 
+public type NewItemRequest = {
+    name: Text;
+    cost: Nat;
+    available: Bool;
+    category: Text;
+    merchant: Principal;
+};
+
 
 public type Profile = {
     profilePicture: ?Blob;
-    name: ?Text;
-    description: ?Text;
+    name: Text;
+    description: Text;
 }
 
 

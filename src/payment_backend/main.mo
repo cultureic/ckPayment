@@ -11,7 +11,11 @@ import Prelude "mo:base/Prelude";
 import Nat32 "mo:base/Nat32";
 import Nat64 "mo:base/Nat64";
 
+import CkMinter "./CkMinter";
+
 import CkBtcLedger "canister:ckbtc_ledger";
+
+
 //gives error in vscode but should still work
 
 import Types "./types";
@@ -21,21 +25,102 @@ import {
   toSubaccount;
   hashNat; 
 } "utils";
+import Blob "mo:base/Blob";
 
 
 actor CkPayment {
 
+  type Bitcoin_Address = Text;
+  type Satoshi = Nat64;
+
+  type Outpoint = {
+    txid:Blob;
+    vout:Nat32;
+  };
+
+  type Bitcoin_Network = {
+    #mainnet;
+    #testnet;
+  };
+
+  type Filter = {
+    min_confirmations:Nat32;
+    page:Blob;
+  };
+
+  type Utxos = {
+    outpoint:Outpoint;
+    value:Satoshi;
+    height:Nat32;
+  };
+
+  type Blob_hash = Blob;
+
+/*type get_utxos_request = record {
+  address : bitcoin_address;
+  network: bitcoin_network;
+  filter: opt variant {
+    min_confirmations: nat32;
+    page: blob;
+  };
+}
+
+type get_utxos_response = record {
+  utxos: vec utxo;
+  tip_block_hash: block_hash;
+  tip_height: nat32;
+  next_page: opt blob;
+};*/
+
+
+type Get_utxos_response = {
+  utxos:[Utxos];
+  tip_block_hash:Blob_hash;
+  tip_height:Nat32;
+  next_page:?Blob;
+};
+
+
+type Get_utxos_request = {
+  addres:Bitcoin_Address;
+  network:Bitcoin_Network;
+  filter:?Filter;
+};
+
+
+
+  type IC = actor {
+    ecdsa_public_key : ({
+      canister_id : ?Principal;
+      derivation_path : [Blob];
+      key_id : { curve: { #secp256k1; } ; name: Text };
+    }) -> async ({ public_key : Blob; chain_code : Blob; });
+    sign_with_ecdsa : ({
+      message_hash : Blob;
+      derivation_path : [Blob];
+      key_id : { curve: { #secp256k1; } ; name: Text };
+    }) -> async ({ signature : Blob });
+  };
+
+  let ic : IC = actor("aaaaa-aa");
+
+  type CkMinter =  CkMinter.CkMinter;
+
   stable var stableItems : [(Nat, Types.Item)] = [];
   stable var stableProfile : [(Principal, Types.Profile)] = [];
+    stable var stableBtcAddress : [(Principal, Text)] = [];
+
+
 
   let itemStore = HashMap.fromIter<Nat, Types.Item>(Iter.fromArray(stableItems), stableItems.size(), Nat.equal, hashNat);
   let profileStore = HashMap.fromIter<Principal, Types.Profile>(Iter.fromArray(stableProfile), stableProfile.size(), Principal.equal, Principal.hash);
+  let btcAddressStore = HashMap.fromIter<Principal, Text>(Iter.fromArray(stableBtcAddress), stableProfile.size(), Principal.equal, Principal.hash);
+
 
   // Upgrade canister
   system func preupgrade() {
     stableItems := Iter.toArray(itemStore.entries());
     stableProfile := Iter.toArray(profileStore.entries());
-
   };
 
   system func postupgrade() {
@@ -43,7 +128,36 @@ actor CkPayment {
     stableProfile := [];
   };
 
-  public shared (msg) func addNewItem(newItem : Types.Item) : async Result.Result<Nat, Text> {
+  public shared(msg) func mintBTC():async Result.Result<Text,Text>{
+        switch(btcAddressStore.get(msg.caller)){
+          case null{
+              let ckMinter = actor("mqygn-kiaaa-aaaar-qaadq-cai"): CkMinter;
+            let caller = msg.caller;
+            try{
+                let address:Text = await ckMinter.get_btc_address(
+                        toAccount({ caller; canister = Principal.fromActor(CkPayment) })
+                );
+                btcAddressStore.put(msg.caller,address);
+                return #ok address;
+            } catch(e) {
+                return #err "failed to BTC grab address"
+            }
+          };
+          case (?found) {
+              return #ok found;
+          };
+        }
+
+  };
+
+
+
+
+  public shared (msg) func whoami():async Text{
+      return Principal.toText(msg.caller);
+  };
+
+  public shared (msg) func addNewItem(newItem : Types.NewItemRequest) : async Result.Result<Nat, Text> {
     if (null == profileStore.get(msg.caller)) return #err("You are not a merchant");
     let newId = itemStore.size();
 
@@ -54,7 +168,7 @@ actor CkPayment {
       cost = newItem.cost;
       category = newItem.category;
       merchant = msg.caller;
-      wallet = newItem.wallet;
+      wallet = null;
     };
 
     itemStore.put(newId, itemToAdd);
@@ -216,10 +330,21 @@ public shared ({ caller }) func payInvoice(invoice : Types.Invoice) : async Resu
   #ok (); 
 };
 
+
+public shared ({caller}) func getBalance():async Nat{
+    let balance = await CkBtcLedger.icrc1_balance_of(
+      toAccount({ caller; canister = Principal.fromActor(CkPayment) })
+    );
+    return balance;
+};
+
 public shared ({ caller }) func buyItem(itemId : Nat) : async Result.Result<Text, Text> {
     let ?item = itemStore.get(itemId) else return #err("Can't find item");
     if (false == item.available) return #err("Item isn't available");
+    let merchant = item.merchant;
     //TODO: check if amount of product is not 0
+      let toMerchant =  toAccount({ caller=merchant; canister = Principal.fromActor(CkPayment) });
+
 
     //check ckBTC balance of the callers dedicated account
     let balance = await CkBtcLedger.icrc1_balance_of(
@@ -242,10 +367,7 @@ public shared ({ caller }) func buyItem(itemId : Nat) : async Result.Result<Text
           created_at_time = null;
           fee = ?10;
           memo = null;
-          to = {
-            owner = item.merchant;
-            subaccount = item.wallet;
-          };
+          to = toMerchant;
         }
       );
 

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AuthProvider, useAuth } from "./auth";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
+import Docs from "./pages/Docs";
 import Modal from "./components/Modal";
 import "./index.css";
 
@@ -35,6 +36,7 @@ const App = () => {
       <Router>
         <Routes>
           <Route path="" element={<Home />} />
+          <Route path="/docs" element={<Docs />} />
         </Routes>
       </Router>
       <Modal />
