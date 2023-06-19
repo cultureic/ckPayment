@@ -166,7 +166,8 @@ Buys an item from the marketplace.
 Parameters:
 
 item: (Nat) The id of the item to purchase.
-Example:```
+Example:
+```
 buyItem(itemId);
 ```
 
