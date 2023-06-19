@@ -24,7 +24,7 @@ You can customize the SDK integration as per your application's requirements. Re
 
 Here's an example of how you can integrate the SDK in a basic HTML page:
 
-```
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -54,7 +54,7 @@ Here's an example of how you can integrate the SDK in a React application:
 
 2. Import the SDK into your React component:
 
-  ```
+  ```javascript
   import React from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -118,7 +118,8 @@ let newItem = {
   cost: 500,
   available: true,
   category: "Electronics",
-};```
+};
+```
 
 The merchant field representing the merchant who is adding the item is automatically added by BitFabric. This field contains the Principal ID of the user who is currently authenticated. The Principal ID is a unique identifier generated based on the domain where BitFabric is deployed. This ensures that each dapp using BitFabric has unique user identifiers.
 
@@ -129,12 +130,14 @@ profilePicture: (Blob) An optional property, representing the user's profile pic
 name: (Text) The name of the user.
 description: (Text) A description of the user.
 Example:
-```
+
+```javascript
 let newProfile = {
   profilePicture: "<Binary Data>",
   name: "John Doe",
   description: "A tech enthusiast",
-};```
+};
+```
 
 
 API Methods
@@ -145,7 +148,7 @@ Parameters:
 
 item: (Item) An Item object representing the item to add to the marketplace.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.addItem(newItem);
 ```
 addProfile(profile)
@@ -156,7 +159,7 @@ Parameters:
 
 profile: (Profile) A Profile object representing the user profile to add.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.addProfile(newProfile);
 ```
 
@@ -167,7 +170,7 @@ Parameters:
 
 item: (Nat) The id of the item to purchase.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.buyItem(itemId);
 ```
 
@@ -178,7 +181,7 @@ Parameters:
 
 item: (Nat) The id of the item to retrieve.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.getItem(itemId);
 ```
 
