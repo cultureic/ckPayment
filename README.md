@@ -14,7 +14,8 @@ To use SDK Name in your web application, follow these steps:
    window.onload = function() {
     var modalElement = document.getElementById('payment-modal');
     ckPaySDK.PaymentComponent.renderPaymentModal(modalElement, { /* props go here */ });
-}```
+}
+```
 
 Make sure to replace `{ /* props go here */ }` with the necessary configuration options for your payment component.
 
@@ -24,7 +25,7 @@ You can customize the SDK integration as per your application's requirements. Re
 
 Here's an example of how you can integrate the SDK in a basic HTML page:
 
-```
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -54,7 +55,7 @@ Here's an example of how you can integrate the SDK in a React application:
 
 2. Import the SDK into your React component:
 
-  ```
+  ```javascript
   import React from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -118,7 +119,8 @@ let newItem = {
   cost: 500,
   available: true,
   category: "Electronics",
-};```
+};
+```
 
 The merchant field representing the merchant who is adding the item is automatically added by BitFabric. This field contains the Principal ID of the user who is currently authenticated. The Principal ID is a unique identifier generated based on the domain where BitFabric is deployed. This ensures that each dapp using BitFabric has unique user identifiers.
 
@@ -129,12 +131,14 @@ profilePicture: (Blob) An optional property, representing the user's profile pic
 name: (Text) The name of the user.
 description: (Text) A description of the user.
 Example:
-```
+
+```javascript
 let newProfile = {
   profilePicture: "<Binary Data>",
   name: "John Doe",
   description: "A tech enthusiast",
-};```
+};
+```
 
 
 API Methods
@@ -145,7 +149,7 @@ Parameters:
 
 item: (Item) An Item object representing the item to add to the marketplace.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.addItem(newItem);
 ```
 addProfile(profile)
@@ -156,7 +160,7 @@ Parameters:
 
 profile: (Profile) A Profile object representing the user profile to add.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.addProfile(newProfile);
 ```
 
@@ -167,7 +171,7 @@ Parameters:
 
 item: (Nat) The id of the item to purchase.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.buyItem(itemId);
 ```
 
@@ -178,9 +182,94 @@ Parameters:
 
 item: (Nat) The id of the item to retrieve.
 Example:
-```
+```javascript
 ckPaySDK.PaymentComponent.getItem(itemId);
 ```
 
 
 When BitFabric is deployed, it establishes a connection with your dapp and generates unique Principal IDs based on your domain. These Principal IDs are used to uniquely identify users in the system, allowing for safe and secure transactions.
+
+
+Customizing BitFabric Payment Widget
+The BitFabric payment widget provides a highly customizable interface for streamlining the payment flow. This document will guide you on how to use and customize the BitFabric widget in your application.
+
+Here's an example of how to customize the widget:
+```javascript
+window.onload = function () {
+  ckPaySDK.PaymentComponent.initialize('payment-modal', {
+    cardColor: "#123456",
+    gradientColor: "#789abc",
+    primaryColor: '#abcdef',
+    secondaryColor: '#ffffff',
+    steps: [
+      {
+        type: 'login',
+        title: 'Custom Login',
+        data: {
+          "type": "section",
+          "props": {},
+          "style": {},
+          "children": [
+            {
+              "type": "h1",
+              "props": {},
+              "style": { "color": "green", "textAlign": "center" },
+              "children": "Welcome Back!"
+            },
+            {
+              "type": "p",
+              "props": {},
+              "style": { "color": "black", "fontSize": "18px" },
+              "children": "We're glad to see you again. Let's make some magic happen!"
+            }
+          ]
+        }
+      },
+      {
+        type: 'confirmPaymentDetails',
+        title: 'Confirm Payment Details',
+        data: {
+          "type": "section",
+          "props": {},
+          "children": [
+            {
+              "type": "h1",
+              "props": {},
+              "children": "Invoice"
+            },
+            {
+              "type": "p",
+              "props": {},
+              "children": "Customer Name"
+            },
+            {
+              "type": "p",
+              "props": {},
+              "children": "Product: 'Cool Product'"
+            },
+            {
+              "type": "p",
+              "props": {},
+              "children": "Price: 0.00000100 BTC"
+            }
+          ]
+        }
+      }
+    ],
+  });
+}
+```
+Here is a breakdown of the different customization options:
+
+- `cardColor`: This defines the main color of the card.
+- `gradientColor`: This defines the gradient color of the card.
+- `primaryColor`: This defines the primary color of the texts and buttons.
+- `secondaryColor`: This defines the secondary color of the texts and buttons.
+- `steps`: This is an array that defines the steps of the payment flow. Each step is an object that has a `type`, `title`, and `data` property. `data` contains the content to be displayed on the step and can include nested elements.
+
+In the example above, we have two steps: 'login' and 'confirmPaymentDetails'. Each step has a custom title and data.
+
+The `type` field for the step is a string representing the type of the step. The `title` is the title for that particular step, and `data` is the contents of the step. In the `data`, you can specify a `type` (like 'section'), `props` for additional properties, `style` for the style of the section, and `children` for the nested elements inside the section.
+
+With these options, you can customize the payment flow according to your application's requirements.
+
