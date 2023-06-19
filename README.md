@@ -146,7 +146,7 @@ Parameters:
 item: (Item) An Item object representing the item to add to the marketplace.
 Example:
 ```
-addItem(newItem);
+ckPaySDK.PaymentComponent.addItem(newItem);
 ```
 addProfile(profile)
 
@@ -157,7 +157,7 @@ Parameters:
 profile: (Profile) A Profile object representing the user profile to add.
 Example:
 ```
-addProfile(newProfile);
+ckPaySDK.PaymentComponent.addProfile(newProfile);
 ```
 
 buyItem(item)
@@ -168,7 +168,7 @@ Parameters:
 item: (Nat) The id of the item to purchase.
 Example:
 ```
-buyItem(itemId);
+ckPaySDK.PaymentComponent.buyItem(itemId);
 ```
 
 getItem(item)
@@ -179,7 +179,7 @@ Parameters:
 item: (Nat) The id of the item to retrieve.
 Example:
 ```
-getItem(itemId);
+ckPaySDK.PaymentComponent.getItem(itemId);
 ```
 
 
