@@ -1,4 +1,14 @@
 
+# BitFabric: Crypto Accelerator Widget Extension Service
+
+Welcome to BitFabric, your next-generation crypto accelerator widget extension service. We provide a seamless layer for both Web 2.0 and Web 3.0 applications, enabling the hosting of crypto-commerce items and direct receipt of payments to a control wallet by the users of your services.
+
+## What Can BitFabric Do For You?
+
+With BitFabric deployed in your dApp using our Web 3.0 decentralized SDK, you and your users gain access to a myriad of accelerator features. Purchase and sell items with ease, and turn any dApp that deploys BitFabric into a potential marketplace. This empowers social creators to incubate interactions while BitFabric handles the heavy lifting.
+
+We achieve this by distributing a user-friendly interface of utilities through a Web 3.0 CDN JS framework.
+
 ## Usage
 
 To use SDK Name in your web application, follow these steps:
