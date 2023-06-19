@@ -194,7 +194,7 @@ Customizing BitFabric Payment Widget
 The BitFabric payment widget provides a highly customizable interface for streamlining the payment flow. This document will guide you on how to use and customize the BitFabric widget in your application.
 
 Here's an example of how to customize the widget:
-```
+```javascript
 window.onload = function () {
   ckPaySDK.PaymentComponent.initialize('payment-modal', {
     cardColor: "#123456",
@@ -259,17 +259,17 @@ window.onload = function () {
   });
 }
 ```
-
 Here is a breakdown of the different customization options:
 
-cardColor: This defines the main color of the card.
-gradientColor: This defines the gradient color of the card.
-primaryColor: This defines the primary color of the texts and buttons.
-secondaryColor: This defines the secondary color of the texts and buttons.
-steps: This is an array that defines the steps of the payment flow. Each step is an object that has a type, title, and data property. data contains the content to be displayed on the step and can include nested elements.
+- `cardColor`: This defines the main color of the card.
+- `gradientColor`: This defines the gradient color of the card.
+- `primaryColor`: This defines the primary color of the texts and buttons.
+- `secondaryColor`: This defines the secondary color of the texts and buttons.
+- `steps`: This is an array that defines the steps of the payment flow. Each step is an object that has a `type`, `title`, and `data` property. `data` contains the content to be displayed on the step and can include nested elements.
+
 In the example above, we have two steps: 'login' and 'confirmPaymentDetails'. Each step has a custom title and data.
 
-The type field for the step is a string representing the type of the step. The title is the title for that particular step and data is the contents of the step. In the data, you can specify a type (like 'section'), props for additional properties, style for the style of the section and children for the nested elements inside the section.
+The `type` field for the step is a string representing the type of the step. The `title` is the title for that particular step, and `data` is the contents of the step. In the `data`, you can specify a `type` (like 'section'), `props` for additional properties, `style` for the style of the section, and `children` for the nested elements inside the section.
 
 With these options, you can customize the payment flow according to your application's requirements.
 
