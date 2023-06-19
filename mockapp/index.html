@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple eCommerce Site</title>
+    <script src="https://cdkpay.dogeria.workers.dev/cdkPay.js"></script>
+    <style>
+        #invoice {
+            margin-bottom: 30px;
+        }
+        #invoice p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <section id="invoice">
+        <p>Price: 100000 Satoshi</p>
+        <h1>Invoice</h1>
+        <p>Customer Name</p>
+        <p>Product: 'Cool Product'</p>
+    </section>
+
+    <button id="pay-button">Pay in BTC</button>
+    <div id="payment-modal"></div>
+
+    <script>
+        window.onload = function() {
+            var payButton = document.getElementById('pay-button');
+            var modalElement = document.getElementById('payment-modal');
+
+            ckPaySDK.PaymentComponent.initialize('payment-modal', {
+                cardColor: "#123456",
+                gradientColor: "#789abc",
+                primaryColor: '#abcdef',
+                secondaryColor: '#ffffff',
+                steps: [
+                    {
+                        type: 'login',
+                        title: 'Custom Login',
+                        data: { /* Custom data */ }
+                    },
+                    {
+                        type: 'confirmPaymentDetails',
+                        title: 'Confirm Payment Details',
+                        data: { /* Custom data */ }
+                    }
+                ],
+            });
+
+            payButton.onclick = function() {
+                ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
+                    console.log('Payment complete')
+                    // hide the modal when payment is done
+                    ckPaySDK.PaymentComponent.removePaymentModal()
+                });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -151,7 +151,7 @@
     /* Your CSS file */
 
 .my-image {
-    width: 100%;
+    width: 70%;
     height: auto;
   }
 
@@ -161,4 +161,157 @@
     }
   }
 
+
 }
+
+
+
+chat-container {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	background-color: #2a3447;
+	padding: 100px;
+	margin: 0 auto;
+	width: 80%;
+  }
+
+  .chat-prompt-container {
+	  width: 100%;
+  }
+  .input-and-assets {
+	  width: 100%;
+  }
+
+  .chat-prompt-label{
+	  width: 100%;
+	  margin:2%;
+  }
+
+  .chat-input {
+	font-size: 16px;
+	padding: 10px;
+	border-radius: 5px;
+	border: none;
+	width: 70%;
+  }
+
+
+
+
+
+
+  .chat-button {
+	font-size: 16px;
+	padding: 10px;
+	border-radius: 5px;
+	background-color: #2a2d3f;
+	color: rgb(19, 19, 19);
+	border: none;
+	cursor: pointer;
+  }
+
+
+  .asset-history {
+	list-style: none;
+	padding: 0;
+	margin: 20px 0;
+	max-height: 300px;
+	overflow-y: scroll;
+	width: 100%;
+  }
+
+
+  .chat-history {
+	list-style: none;
+	padding: 3;
+	margin: 20px 10px 10px 10px;
+	max-height: 1200px;
+	max-width: 100%;
+	overflow-y: scroll;
+	width: 100%;
+  }
+
+  .chat-message {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	margin: 5px 20px;
+  }
+
+  .chat-message.user {
+	align-items: flex-end;
+  }
+
+  .chat-message-text {
+	background-color: #212020;
+	border-radius: 5px;
+	padding: 10px;
+	max-width: 80%;
+  }
+
+  .chat-message-text.user {
+	background-color: #25272b;
+	color: white;
+  }
+
+  .chat-message-role {
+	font-size: 14px;
+	color: #666;
+	margin-bottom: 5px;
+  }
+
+  .chat-message-role.user {
+	align-self: flex-end;
+  }
+
+
+/* styles for screens with a height of at least 600px */
+@media (min-height: 600px) {
+	.chat-container {
+		width: 87%;
+	}
+}
+
+/* styles for screens with a height of at least 800px */
+@media (min-height: 800px) {
+	.chat-container {
+		width: 70%;
+	}
+}
+
+/* styles for screens with a width of at least 1200px */
+@media (min-width: 1200px) {
+	.chat-container {
+		width: 60%;
+	}
+}
+
+.code-editor-container {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f6f8fa;
+    padding: 1em;
+    width: 100%;
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2), 0 2px 10px 0 rgba(0, 0, 0, 0.19);
+    margin-bottom: 2em;
+  }
+
+  .code-editor-title {
+    font-weight: 600;
+    margin-bottom: 1em;
+  }
+
+  .code-editor {
+    width: 100%;
+    min-height: 200px;
+    max-height: 400px;
+    padding: 10px;
+    border-radius: 4px;
+    border: none;
+    font-family: 'Courier New', Courier, monospace;
+    color: #333;
+    resize: none; /* Disables manual resize */
+    white-space: pre-wrap; /* Preserves spaces and line breaks */
+    tab-size: 2; /* Controls the amount of space a tab character takes up */
+  }

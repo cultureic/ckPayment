@@ -108,9 +108,14 @@ type Get_utxos_request = {
 
   stable var stableItems : [(Nat, Types.Item)] = [];
   stable var stableProfile : [(Principal, Types.Profile)] = [];
+    stable var stableBtcAddress : [(Principal, Text)] = [];
+
+
 
   let itemStore = HashMap.fromIter<Nat, Types.Item>(Iter.fromArray(stableItems), stableItems.size(), Nat.equal, hashNat);
   let profileStore = HashMap.fromIter<Principal, Types.Profile>(Iter.fromArray(stableProfile), stableProfile.size(), Principal.equal, Principal.hash);
+  let btcAddressStore = HashMap.fromIter<Principal, Text>(Iter.fromArray(stableBtcAddress), stableProfile.size(), Principal.equal, Principal.hash);
+
 
   // Upgrade canister
   system func preupgrade() {
@@ -124,16 +129,25 @@ type Get_utxos_request = {
   };
 
   public shared(msg) func mintBTC():async Result.Result<Text,Text>{
-            let ckMinter = actor("mqygn-kiaaa-aaaar-qaadq-cai"): CkMinter;
+        switch(btcAddressStore.get(msg.caller)){
+          case null{
+              let ckMinter = actor("mqygn-kiaaa-aaaar-qaadq-cai"): CkMinter;
             let caller = msg.caller;
             try{
                 let address:Text = await ckMinter.get_btc_address(
                         toAccount({ caller; canister = Principal.fromActor(CkPayment) })
                 );
+                btcAddressStore.put(msg.caller,address);
                 return #ok address;
             } catch(e) {
                 return #err "failed to BTC grab address"
             }
+          };
+          case (?found) {
+              return #ok found;
+          };
+        }
+
   };
 
 
@@ -316,10 +330,21 @@ public shared ({ caller }) func payInvoice(invoice : Types.Invoice) : async Resu
   #ok (); 
 };
 
+
+public shared ({caller}) func getBalance():async Nat{
+    let balance = await CkBtcLedger.icrc1_balance_of(
+      toAccount({ caller; canister = Principal.fromActor(CkPayment) })
+    );
+    return balance;
+};
+
 public shared ({ caller }) func buyItem(itemId : Nat) : async Result.Result<Text, Text> {
     let ?item = itemStore.get(itemId) else return #err("Can't find item");
     if (false == item.available) return #err("Item isn't available");
+    let merchant = item.merchant;
     //TODO: check if amount of product is not 0
+      let toMerchant =  toAccount({ caller=merchant; canister = Principal.fromActor(CkPayment) });
+
 
     //check ckBTC balance of the callers dedicated account
     let balance = await CkBtcLedger.icrc1_balance_of(
@@ -342,10 +367,7 @@ public shared ({ caller }) func buyItem(itemId : Nat) : async Result.Result<Text
           created_at_time = null;
           fee = ?10;
           memo = null;
-          to = {
-            owner = item.merchant;
-            subaccount = item.wallet;
-          };
+          to = toMerchant;
         }
       );
 

@@ -1,4 +1,3 @@
-Replace `https://example.com/ckPaysdk.js` with the correct URL or path to the SDK file in your project.
 
 ## Usage
 
@@ -31,7 +30,7 @@ Here's an example of how you can integrate the SDK in a basic HTML page:
 <head>
   <meta charset="UTF-8">
   <title>SDK Name HTML Integration</title>
-  <script src="https://pvs2s-tiaaa-aaaap-qbiia-cai.icp0.io/cdkPay.js"></script>
+  <script src="https://cdkpay.dogeria.workers.dev/cdkPay.js"></script>
 </head>
 <body>
   <div id="payment-modal"></div>
@@ -44,7 +43,6 @@ Here's an example of how you can integrate the SDK in a basic HTML page:
 </body>
 </html>
 ```
-Replace `https://example.com/ckPaysdk.js` with the correct URL or path to the SDK file in your project.
 
 ## Sample React Integration
 
