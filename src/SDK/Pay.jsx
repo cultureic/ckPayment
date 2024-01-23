@@ -12,7 +12,8 @@ import { addItem,addProfile,getItem,buyItem } from "./interfaceHook";
 
 
 
-const SVGLogo = ({ address, loading }) => {
+const SVGLogo = ({ address,loading,cardColor,gradientColor,balance }) => {
+  console.log("balance",balance)
   useEffect(() => {}, [address]);
 
   const textRef = useRef(null);
@@ -58,7 +59,7 @@ const SVGLogo = ({ address, loading }) => {
         preserveAspectRatio="xMidYMid meet"
         style={{
           opacity: loading ? 0.5 : 1,
-          filter: 'drop-shadow(2px 4px 6px rgba(0,0,0,0.1))',
+          filter: 'drop-shadow(5px 4px 6px rgba(0,0,0,0.1))',
           position: 'absolute',
           top: 0,
           left: 0,
@@ -325,6 +326,25 @@ const StepsComponent = ({ login,steps, componentMapping,removePaymentModal,logou
 };
 
 
+const CustomStep = ({ isAuthenticated, step, handleNextStep, handlePreviousStep, componentMapping, removePaymentModal,login,logout,setBalance, ...props }) => { // Destructure props
+  const { type, data } = step; // Destructure step
+  const Component = componentMapping[type]; // Get the component from the mapping object
+  const componentProps = { // Create an object of props to pass to the component
+    isAuthenticated,
+    handleNextStep,
+    handlePreviousStep,
+    removePaymentModal,
+    login,
+    logout,
+    setBalance,
+    data,
+    ...props,
+  };
+
+  return <Component {...componentProps} />; // Render the component with props
+};
+
+
 
 
 
@@ -332,9 +352,10 @@ const StepsComponent = ({ login,steps, componentMapping,removePaymentModal,logou
 
 
 const PaymentComponent = ({ steps, styles = {}, classes, logo, removePaymentModal, onPayment, componentMapping, secondaryColor,primaryColor,gradientColor,cardColor, ...props }) => {
+  console.log("cardColor",cardColor)
   const { isAuthenticated, identity, login, backendActor, logout } = useAuth();
   const [mssg, setMssg] = useState(null);
-  const [balance, setBalance] = useState(null);
+  const [balance, setBalance] = useState(0.0);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading,setLoading] = useState(false);
 
@@ -453,7 +474,8 @@ const DynamicModalWrapper = styled(ModalWrapper)(css`${styles.modalWrapper || de
   const ConfirmPaymentDetails = ({ handleNextStep, handlePreviousStep, removePaymentModal, data }) => {
     return (
       <StepContentContainer>
-        {isConfirmed ? confirmationMessage : paymentDetails}
+      {//isConfirmed ? confirmationMessage : paymentDetails
+      }
         <ButtonContainer>
           <div>
             <button onClick={handlePreviousStep}>Back</button>
@@ -525,7 +547,7 @@ const MyLibrary = {
 
     // Merge defaultProps, props, and options
     props = { ...defaultProps, ...props, ...options };
-
+    console.log("props",props)
     // if steps and data are passed in options, they should override the defaults
     if (options.steps) {
       props.steps = options.steps;

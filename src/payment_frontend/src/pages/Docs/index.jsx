@@ -40,16 +40,25 @@ const Docs = () => (
         <h3>HTML Integration</h3>
         <p>Here's an example of how you can integrate the SDK in a basic HTML page:</p>
         <CodeBlock>
-{`<!DOCTYPE html>
+{` <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>SDK Name HTML Integration</title>
-  <script src="https://cdkpay.dogeria.workers.dev/cdkPay.js"></script>
+  <script src="https://pvs2s-tiaaa-aaaap-qbiia-cai.icp0.io/cdkPay.js"></script>
 </head>
 <body>
   <div id="payment-modal"></div>
+  <button onclick="startPaymentFlow()">Start Payment</button>
   <script>
+    const startPaymentFlow = () => {
+      ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
+        console.log('Payment complete');
+        // hide the modal when payment is done
+        ckPaySDK.PaymentComponent.removePaymentModal();
+      });
+    };
+
     window.onload = function() {
       ckPaySDK.PaymentComponent.initialize('payment-modal', {
         cardColor: "#123456",
@@ -60,17 +69,16 @@ const Docs = () => (
           {
             type: 'login',
             title: 'Custom Login',
-            data: { /* Custom data */ }
+            data: { /* Custom data / }
           },
           {
             type: 'confirmPaymentDetails',
             title: 'Confirm Payment Details',
-            data: { /* Custom data */ }
+            data: { / Custom data */ }
           }
         ],
       });
-    }
-    }
+    };
   </script>
 </body>
 </html>`}

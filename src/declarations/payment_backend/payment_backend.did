@@ -1,4 +1,81 @@
+type Subaccount = blob;
+type Result_5 = 
+ variant {
+   err: text;
+   ok: nat;
+ };
+type Result_4 = 
+ variant {
+   err: text;
+   ok: Invoice;
+ };
+type Result_3 = 
+ variant {
+   err: text;
+   ok: text;
+ };
+type Result_2 = 
+ variant {
+   err: text;
+   ok;
+ };
+type Result_1 = 
+ variant {
+   err: text;
+   ok: Item;
+ };
+type Result = 
+ variant {
+   err: text;
+   ok: Profile;
+ };
+type Profile = 
+ record {
+   description: text;
+   name: text;
+   profilePicture: opt blob;
+ };
+type NewItemRequest = 
+ record {
+   available: bool;
+   category: text;
+   cost: nat;
+   merchant: principal;
+   name: text;
+ };
+type Item = 
+ record {
+   available: bool;
+   category: text;
+   cost: nat;
+   id: nat;
+   merchant: principal;
+   name: text;
+   wallet: opt Subaccount;
+ };
+type Invoice = 
+ record {
+   amount: nat;
+   itemId: nat;
+   merchant: principal;
+   to: Account;
+ };
+type Account = 
+ record {
+   owner: principal;
+   subaccount: opt Subaccount;
+ };
 service : {
-  getMessage: () -> (text) query;
-  greet: (text) -> (text) query;
+  addNewItem: (NewItemRequest) -> (Result_5);
+  addNewProfile: (Profile) -> (Result);
+  buyItem: (nat) -> (Result_3);
+  getBalance: () -> (nat);
+  getInvoice: (nat) -> (Result_4);
+  getItem: (nat) -> (Result_1);
+  getProfile: (principal) -> (Result);
+  mintBTC: () -> (Result_3);
+  payInvoice: (Invoice) -> (Result_2);
+  updateItem: (nat, Item) -> (Result_1);
+  updateProfile: (Profile) -> (Result);
+  whoami: () -> (text);
 }

@@ -6,72 +6,28 @@ import BTC_State from "../../../assets/btc_station.png"
 import BubbleWidget from '../../components/BubbleWidget';
 import Header from '../../components/Header';
 import {useAuth} from "../../auth";
-import Chat from "../../components/chat";
+//import Chat from "../../components/chat";
 
 
 
 window.onload = function () {
     ckPaySDK.PaymentComponent.initialize('payment-modal', {
-      cardColor: "#123456",
-      gradientColor: "#789abc",
-      primaryColor: '#abcdef',
-      secondaryColor: '#ffffff',
-      steps: [
+      "cardColor": "#123456",
+      "gradientColor": "#789abc",
+      "primaryColor": "#abcdef",
+      "secondaryColor": "#ffffff",
+      "steps": [
         {
-          type: 'login',
-          title: 'Custom Login',
-          data: {
-            "type": "section",
-            "props": {},
-            "style": {},
-            "children": [
-              {
-                "type": "h1",
-                "props": {},
-                "style": { "color": "green", "textAlign": "center" },
-                "children": "Welcome Back!"
-              },
-              {
-                "type": "p",
-                "props": {},
-                "style": { "color": "black", "fontSize": "18px" },
-                "children": "We're glad to see you again. Let's make some magic happen!"
-              }
-            ]
-          }
-
+          "type": "login",
+          "title": "Custom Login",
+          "data": {}
         },
         {
-          type: 'confirmPaymentDetails',
-          title: 'Confirm Payment Details',
-          data: {
-            "type": "section",
-            "props": {},
-            "children": [
-              {
-                "type": "h1",
-                "props": {},
-                "children": "Invoice"
-              },
-              {
-                "type": "p",
-                "props": {},
-                "children": "Customer Name"
-              },
-              {
-                "type": "p",
-                "props": {},
-                "children": "Product: 'Cool Product'"
-              },
-              {
-                "type": "p",
-                "props": {},
-                "children": "Price: 0.00000100 BTC"
-              }
-            ]
-          }
+          "type": "selectPaymentMethod",
+          "title": "Custom Select Payment Method",
+          "data": {}
         }
-      ],
+      ]
     });
   }
 
