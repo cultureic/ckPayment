@@ -173,13 +173,20 @@ const formSchema = {
         category: "submit",
         label: "Submit",
         onClick: "handleSubmit"
-      }
+      },
+      {
+        name: "logout",
+        type: "button",
+        category: "form",
+        label: "logout",
+        onClick: "handleLogout"
+      },
     ]
   };
 
 
 function Home() {
-    const{login,logout,backendActor,isAuthenticated,principal} = useAuth();
+    const{icEthActor,login,logout,backendActor,isAuthenticated,principal} = useAuth();
     const [isNavOpen, setIsNavOpen] = useState(false);
 
     const startPaymentFlow = async () => {
@@ -192,10 +199,18 @@ function Home() {
         })
       }
 
+    const grabEth = async () =>{
+      let ethAddress=  await icEthActor.caller_eth_address()
+      console.log("ethAddres",ethAddress)
+    }
+
 
     useEffect(()=>{
         console.log("here",backendActor,isAuthenticated)
-    },[isAuthenticated,backendActor])
+        if(icEthActor){
+          grabEth()
+        }
+    },[isAuthenticated,backendActor,icEthActor])
 
     const handleNavToggle = () => {
         setIsNavOpen(!isNavOpen);
@@ -233,6 +248,14 @@ function Home() {
                         await login()
                     }
                  },
+                 handleLogout: async (event, item) => {
+                  if(isAuthenticated){
+                      await logout()
+                  }else{
+                      await login()
+                  }
+               },
+
                 // More callbacks as required
             }}
         formSchema={formSchema}

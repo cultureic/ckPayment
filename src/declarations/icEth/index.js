@@ -13,12 +13,12 @@ export const canisterId =
   process.env.CANISTER_ID_ICETH ||
   process.env.ICETH_CANISTER_ID;
 
-export const createActor = (canisterId, options = {}) => {
+export const createActoricEth = (canisterId, options = {}) => {
   const agent = options.agent || new HttpAgent({ ...options.agentOptions });
 
   if (options.agent && options.agentOptions) {
     console.warn(
-      "Detected both agent and agentOptions passed to createActor. Ignoring agentOptions and proceeding with the provided agent."
+      "Detected both agent and agentOptions passed to createActoricEth. Ignoring agentOptions and proceeding with the provided agent."
     );
   }
 
