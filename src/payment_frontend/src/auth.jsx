@@ -1,6 +1,8 @@
 import { AuthClient } from "@dfinity/auth-client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { canisterId, createActor } from "../../declarations/payment_backend";
+import { canisterIdicEth, createActoricEth } from "../../declarations/icEth";
+
 
 const AuthContext = createContext(null);
 
@@ -39,6 +41,7 @@ export const useAuthClient = (options = defaultOptions) => {
   const [identity, setIdentity] = useState(null);
   const [principal, setPrincipal] = useState(null);
   const [backendActor, setbackendActor] = useState(null);
+  const [icEthActor, setIcEthActor] = useState(null);
 
   useEffect(() => {
     console.log("what sup");
@@ -75,8 +78,14 @@ export const useAuthClient = (options = defaultOptions) => {
         identity,
       },
     });
+    const icEthActor = createActoricEth(canisterIdicEth,{
+      agentOptions: {
+        identity,
+      }
+    })
     console.log("actor",actor)
     setbackendActor(actor);
+    setIcEthActor(icEthActor)
   }
 
   async function logout() {
