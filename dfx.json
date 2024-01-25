@@ -1,5 +1,14 @@
 {
   "canisters": {
+    "icEth": {
+			"candid": "src/icEth/icEth.did",
+			"package": "icEth",
+			"type": "rust",
+			"declarations": {
+				"node_compatibility": true
+			},
+			"optimize": "cycles"
+		},
     "payment_backend": {
       "main": "src/payment_backend/main.mo",
       "type": "motoko",
