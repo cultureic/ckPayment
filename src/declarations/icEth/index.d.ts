@@ -38,7 +38,7 @@ export declare interface CreateActorOptions {
  * @param {CreateActorOptions["actorOptions"]} options.actorOptions - options for the Actor
  * @see {@link ActorConfig}
  */
-export declare const createActor: (
+export declare const createActoricEth: (
   canisterId: string | Principal,
   options?: CreateActorOptions
 ) => ActorSubclass<_SERVICE>;

@@ -101,6 +101,7 @@ export const useAuthClient = (options = defaultOptions) => {
     identity,
     principal,
     backendActor,
+    icEthActor
   };
 };
 
