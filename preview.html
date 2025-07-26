@@ -1,25 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>SDK Name HTML Integration</title>
+  <title>Payment Integration</title>
+  <!-- 1. Load SDK -->
   <script src="https://zkg6o-xiaaa-aaaag-acofa-cai.icp0.io/cdkPay.js"></script>
+  <!-- OR for local testing: -->
+  <!-- <script src="ckPayment-web3/dist/cdkPay.js"></script> -->
 </head>
 <body>
-  <div id="payment-modal"></div>
-  <button onclick="startPaymentFlow()">Start Payment</button>
+  <!-- 2. Required container (must match ID below) -->
+  <div id="payment-container"></div>
+  
+  <!-- 3. Trigger button -->
+  <button onclick="startPayment()">Pay Now</button>
+
   <script>
-    const startPaymentFlow = () => {
-      ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
-        console.log('Payment complete');
-        // hide the modal when payment is done
-        ckPaySDK.PaymentComponent.removePaymentModal();
-      });
+    // 4. Initialize when page loads (REQUIRED FIRST)
+    window.onload = function() {
+      ckPaySDK.PaymentComponent.initialize('payment-container');
     };
 
-    window.onload = function() {
-      ckPaySDK.PaymentComponent.initialize('payment-modal');
-    };
+    // 5. Payment flow handler
+    function startPayment() {
+      ckPaySDK.PaymentComponent.renderPaymentModal(
+        { /* payment config */ }, 
+        function(paymentResult) {
+          console.log('Payment completed:', paymentResult);
+          ckPaySDK.PaymentComponent.removePaymentModal();
+        }
+      );
+    }
   </script>
 </body>
 </html>
