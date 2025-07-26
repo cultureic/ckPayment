@@ -107,7 +107,8 @@ export const addProfileWrapped = async (authClient, newProfile=null) => {
       const isAuth = await isAuthenticated(authClient);
       const backendActor = await getBackendActor(authClient);
       //const principal = await authClient.getIdentity().getPrincipal();
-
+      console.log("is Auth",isAuth)
+      console.log("backend",backendActor,item)
       if(!isAuth){ return null}
 
 

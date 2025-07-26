@@ -1,0 +1,167 @@
+import { useState, useEffect, useRef } from 'react';
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+
+const Navbar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const scrollToSection = (id: string) => {
+    if (location.pathname === '/') {
+      // On home page, scroll to section
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      // On other pages, navigate to home page then scroll
+      navigate('/');
+      // Small timeout to ensure the page has loaded before scrolling
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+    setIsMenuOpen(false);
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+
+    // Add event listener when menu is open
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  // Prevent body scroll when menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMenuOpen]);
+
+  const navItems = [
+    { path: '/caracteristicas', label: 'Características', external: false },
+    { path: '/documentacion', label: 'Documentación', external: false },
+    { path: '/precios', label: 'Precios', external: false },
+    { path: '/seguridad', label: 'Seguridad', external: false },
+    { path: '/casos-de-uso', label: 'Casos de Uso', external: false }
+  ];
+
+  return (
+    <nav className="fixed w-full bg-background/80 backdrop-blur-sm z-50 border-b border-border/40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                ckPayment
+              </span>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
+            {navItems.map((item, index) => (
+              item.external ? (
+                <a
+                  key={index}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground/80 hover:text-foreground px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={index}
+                  to={item.path}
+                  className="text-foreground/80 hover:text-foreground px-3 py-2 rounded-md text-sm font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              )
+            ))}
+            <Link to="/#contacto">
+              <Button className="ml-4">
+                Comenzar
+              </Button>
+            </Link>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Navigation */}
+      {isMenuOpen && (
+        <div 
+          ref={menuRef}
+          className="md:hidden fixed inset-0 bg-background z-40 pt-16 px-4 overflow-y-auto"
+          style={{ height: '100vh' }}
+        >
+          <div className="flex flex-col space-y-2 py-4">
+            {navItems.map((item, index) => (
+              item.external ? (
+                <a
+                  key={index}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-4 text-lg font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={index}
+                  to={item.path}
+                  className="px-3 py-4 text-lg font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              )
+            ))}
+            <Link to="/#contacto" className="w-full mt-4">
+              <Button className="w-full py-6 text-lg">
+                Comenzar
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default Navbar;

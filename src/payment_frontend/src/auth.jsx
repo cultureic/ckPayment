@@ -1,7 +1,8 @@
 import { AuthClient } from "@dfinity/auth-client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { canisterId, createActor } from "../../declarations/payment_backend";
-import { canisterIdicEth, createActoricEth } from "../../declarations/icEth";
+// import { canisterIdicEth, createActoricEth } from "../../declarations/icEth";
+import {canisterIcrc1,createActorIcrc1} from "../../declarations/ckbtc_ledger";
 
 
 const AuthContext = createContext(null);
@@ -42,6 +43,8 @@ export const useAuthClient = (options = defaultOptions) => {
   const [principal, setPrincipal] = useState(null);
   const [backendActor, setbackendActor] = useState(null);
   const [icEthActor, setIcEthActor] = useState(null);
+  const [ckBtcActor, setCkBtcActor] = useState(null);
+
 
   useEffect(() => {
     console.log("what sup");
@@ -72,7 +75,7 @@ export const useAuthClient = (options = defaultOptions) => {
     setPrincipal(principal);
 
     setAuthClient(client);
-
+      console.log("before creating actor",canisterId)
     const actor = createActor(canisterId, {
       agentOptions: {
         identity,
@@ -83,9 +86,15 @@ export const useAuthClient = (options = defaultOptions) => {
         identity,
       }
     })
+    const ckBtcActor = createActorIcrc1(canisterIcrc1,{
+      agentOptions:{
+        identity,
+      }
+    })
     console.log("actor",actor)
     setbackendActor(actor);
     setIcEthActor(icEthActor)
+    setCkBtcActor(ckBtcActor)
   }
 
   async function logout() {
@@ -101,7 +110,8 @@ export const useAuthClient = (options = defaultOptions) => {
     identity,
     principal,
     backendActor,
-    icEthActor
+    icEthActor,
+    ckBtcActor
   };
 };
 

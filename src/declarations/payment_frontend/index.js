@@ -40,4 +40,4 @@ export const createActor = (canisterId, options = {}) => {
   });
 };
 
-export const payment_frontend = createActor(canisterId);
+export const payment_frontend = canisterId ? createActor(canisterId) : undefined;

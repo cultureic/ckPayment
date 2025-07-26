@@ -61,6 +61,7 @@
     color: var(--primary-dark);
 }
 
+
 .app-hero h2 {
     font-size: 2em;
     margin: 0;
@@ -127,15 +128,9 @@
         display: block;
     }
 
-    .app-nav {
-        display: none;
-    }
+   
 
-    .app-nav.open {
-        display: flex;
-        flex-direction: column;
-    }
-
+   
     .app-hero h2 {
         font-size: 1.1em; /* 3 times smaller than the original 2em */
     }

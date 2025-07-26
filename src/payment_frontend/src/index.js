@@ -1,9 +1,10 @@
 import React, { createContext, useState, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider, useAuth } from "./auth";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Docs from "./pages/Docs";
+import Dashboard from "./pages/Dashboard";
 import Modal from "./components/Modal";
 import "./index.css";
 
@@ -37,6 +38,7 @@ const App = () => {
         <Routes>
           <Route path="" element={<Home />} />
           <Route path="/docs" element={<Docs />} />
+          <Route path='/dashboard' element={<Dashboard/>}/>
         </Routes>
       </Router>
       <Modal />

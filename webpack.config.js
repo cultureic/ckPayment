@@ -15,7 +15,6 @@ module.exports = {
   entry: {
     index: path.join(__dirname, frontend_entry).replace(/\.html$/, ".js"),
     cdkPay: path.join(__dirname, "src", "SDK", "ckPay.js")
-
   },
   devtool: isDevelopment ? "source-map" : false,
   optimization: {
@@ -30,6 +29,7 @@ module.exports = {
       events: require.resolve("events/"),
       stream: require.resolve("stream-browserify/"),
       util: require.resolve("util/"),
+      crypto: false // Add this to handle the crypto warning
     },
   },
   output: {
@@ -52,19 +52,44 @@ module.exports = {
       },
       {
         test: /\.css$/i,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.(png|jpe?g|gif)$/i,
         use: [
+          'style-loader',
           {
-            loader: 'file-loader',
+            loader: 'css-loader',
             options: {
-              name: '[path][name].[ext]',
+              importLoaders: 1,
+            },
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                // Explicit config if not finding postcss.config.js
+                plugins: [
+                  require('tailwindcss'),
+                  require('autoprefixer'),
+                ],
+              },
             },
           },
         ],
       },
+      // Add image file loader
+      {
+        test: /\.(png|jpe?g|gif|svg)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/images/[name][ext]'
+        }
+      },
+      // Add font file loader
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/fonts/[name][ext]'
+        }
+      }
     ],
   },
   plugins: [
@@ -86,6 +111,12 @@ module.exports = {
           to: ".ic-assets.json5",
           noErrorOnMissing: true,
         },
+        // Copy static assets to dist folder
+        {
+          from: `src/${frontendDirectory}/assets`,
+          to: "assets",
+          noErrorOnMissing: true,
+        }
       ],
     }),
   ],

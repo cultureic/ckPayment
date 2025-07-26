@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ckPayment Landing Page Design System - Dark Mode First */
+
+@layer base {
+  :root {
+    /* ckPayment Dark Mode - Brand Colors from Logo */
+    --background: 0 0% 16%;           /* #2A2A2A - Gris Oscuro */
+    --foreground: 240 13% 97%;       /* #F5F5F7 - Gris Claro */
+
+    --card: 0 0% 18%;                /* Slightly lighter than background */
+    --card-foreground: 240 13% 97%; /* #F5F5F7 - Gris Claro */
+
+    --popover: 0 0% 18%;
+    --popover-foreground: 240 13% 97%;
+
+    /* Verde Principal del logo como primary */
+    --primary: 136 66% 62%;          /* #5DDE84 - Verde Principal */
+    --primary-foreground: 0 0% 16%;  /* Dark text on green */
+
+    --secondary: 0 0% 20%;           /* Darker gray for secondary elements */
+    --secondary-foreground: 240 13% 97%;
+
+    --muted: 0 0% 14%;               /* Even darker for muted areas */
+    --muted-foreground: 0 0% 65%;    /* Medium gray for muted text */
+
+    --accent: 136 66% 62%;           /* Same as primary - Verde Principal */
+    --accent-foreground: 0 0% 16%;   /* Dark text on green */
+
+    --destructive: 0 85% 60%;        /* Keep red for errors */
+    --destructive-foreground: 240 13% 97%;
+
+    --border: 0 0% 22%;              /* Subtle border color */
+    --input: 0 0% 20%;               /* Input background */
+    --ring: 136 66% 62%;             /* Verde Principal for focus rings */
+
+    --radius: 0.75rem;
+
+    /* ckPayment brand gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(136 66% 62%), hsl(136 66% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 16%) 0%, hsl(0 0% 12%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 18%) 0%, hsl(0 0% 14%) 100%);
+    
+    /* Code block styling with brand colors */
+    --code-bg: 0 0% 12%;
+    --code-border: 0 0% 25%;
+    
+    /* Green glow effects */
+    --glow-primary: 0 0 40px hsl(136 66% 62% / 0.3);
+    --glow-soft: 0 0 20px hsl(136 66% 62% / 0.1);
+
+    /* Animation variables */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .light {
+    /* Light mode overrides if needed */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 214 100% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 214 100% 51%;
+    --accent-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 214 100% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Grid pattern for background */
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Prevent unwanted scroll on page load */
+  html.loading {
+    scroll-behavior: auto;
+  }
+
+  /* Scroll margin for fixed navbar */
+  section[id] {
+    scroll-margin-top: 80px;
+  }
+
+  /* Features page animations */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(93, 222, 132, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(93, 222, 132, 0.6); }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  /* Gradient text animation */
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 640px) {
+    /* Prevent horizontal scroll */
+    body {
+      overflow-x: hidden;
+    }
+    
+    /* Better touch targets */
+    button, a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Improved text readability */
+    .text-xs {
+      font-size: 0.75rem;
+      line-height: 1.2;
+    }
+    
+    /* Better spacing for mobile */
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  /* Smooth transitions for mobile interactions */
+  @media (hover: none) and (pointer: coarse) {
+    .group:hover .group-hover\:scale-110 {
+      transform: none;
+    }
+    
+    .hover\:scale-105:hover {
+      transform: none;
+    }
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.8);
+  }
+}

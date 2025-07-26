@@ -1,39 +1,18 @@
-
-const defaultOptions = {
-  /**
-   *  @type {import("@dfinity/auth-client").AuthClientCreateOptions}
-   */
-  createOptions: {
-    idleOptions: {
-      // Set to true if you do not want idle functionality
-    },
-  },
-  /**
-   * @type {import("@dfinity/auth-client").AuthClientLoginOptions}
-   */
-  loginOptions: {
-    identityProvider:
-      process.env.DFX_NETWORK === "ic"
-        ?
-        "https://identity.ic0.app/#authorize":
-        `http://localhost:4943?canisterId=${process.env.CANISTER_ID_INTERNET_IDENTITY}#authorize`
-       ,
-  },
-};
-
-
-
 import { AuthClient } from "@dfinity/auth-client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { canisterId, createActor } from "../declarations/payment_backend";
 
+const defaultOptions = {
+  createOptions: {
+    idleOptions: {},
+  },
+  loginOptions: {
+    identityProvider:  "https://identity.ic0.app/#authorize"
+    
+  },
+};
+
 export const AuthContext = createContext(null);
-
-// Global state
-let globalAuthClient;
-let globalState;
-
-
 
 export const useAuthClient = (options = defaultOptions) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -43,47 +22,80 @@ export const useAuthClient = (options = defaultOptions) => {
   const [backendActor, setBackendActor] = useState(null);
 
   useEffect(() => {
+    console.log('Initializing AuthClient');
     AuthClient.create(options.createOptions).then(async (client) => {
-      globalAuthClient = client;
       setAuthClient(client);
-      updateClient(client);
+      await updateClient(client);
+    }).catch(err => {
+      console.error('Failed to create AuthClient:', err);
     });
   }, []);
 
-  const login = () => {
-    authClient.login({
-      ...options.loginOptions,
-      onSuccess: () => {
-        updateClient(authClient);
-      },
-    });
+  const login = async () => {
+    if (!authClient) {
+      console.error('AuthClient not initialized');
+      return;
+    }
+    try {
+      console.log('Starting login');
+      await authClient.login({
+        ...options.loginOptions,
+        onSuccess: async () => {
+          console.log('Login onSuccess triggered');
+          await updateClient(authClient);
+        },
+        onError: (err) => {
+          console.error('Login failed:', err);
+        },
+      });
+    } catch (err) {
+      console.error('Login error:', err);
+    }
   };
 
   async function updateClient(client) {
-    const isAuthenticated = await client.isAuthenticated();
-    setIsAuthenticated(isAuthenticated);
+    try {
+      const isAuth = await client.isAuthenticated();
+      console.log('Updating client - isAuthenticated:', isAuth);
+      setIsAuthenticated(isAuth);
 
-    const identity = client.getIdentity();
-    setIdentity(identity);
+      const ident = client.getIdentity();
+      setIdentity(ident);
 
-    const principal = identity.getPrincipal();
-    setPrincipal(principal);
+      const princ = ident.getPrincipal();
+      setPrincipal(princ);
+      console.log('Principal set:', princ.toText());
 
-    setAuthClient(client);
+      setAuthClient(client);
 
-    const actor = createActor(canisterId, {
-      agentOptions: {
-        identity,
-      },
-    });
-
-    globalState = {actor,principal,isAuthenticated};
-    setBackendActor(actor);
+      const actor = createActor(canisterId, {
+        agentOptions: {
+          identity: ident,
+        },
+      });
+      setBackendActor(actor);
+      console.log('Backend actor set');
+    } catch (err) {
+      console.error('Error updating client:', err);
+      setIsAuthenticated(false);
+      setIdentity(null);
+      setPrincipal(null);
+      setBackendActor(null);
+    }
   }
 
   async function logout() {
-    await authClient?.logout();
-    await updateClient(authClient);
+    if (!authClient) {
+      console.error('AuthClient not initialized');
+      return;
+    }
+    try {
+      console.log('Logging out');
+      await authClient.logout();
+      await updateClient(authClient);
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   }
 
   return {
@@ -103,17 +115,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-
-export const getGlobalState = () => {
-  if (!globalState) {
-    throw new Error("Not authenticated");
-  }
-  return globalState;
-};
-
-export const getGlobalAuthClient = () => {
-  if (!globalAuthClient) {
-    throw new Error("Not initialized");
-  }
-  return globalAuthClient;
-};

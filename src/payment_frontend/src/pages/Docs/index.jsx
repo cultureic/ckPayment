@@ -45,7 +45,7 @@ const Docs = () => (
 <head>
   <meta charset="UTF-8">
   <title>SDK Name HTML Integration</title>
-  <script src="https://pvs2s-tiaaa-aaaap-qbiia-cai.icp0.io/cdkPay.js"></script>
+  <script src="https://zkg6o-xiaaa-aaaag-acofa-cai.icp0.io/cdkPay.js"></script>
 </head>
 <body>
   <div id="payment-modal"></div>

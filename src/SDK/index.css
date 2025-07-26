@@ -1,0 +1,4 @@
+/* Example of valid CSS file */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
