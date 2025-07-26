@@ -31,12 +31,14 @@ const IntegrationSteps = () => {
     {
       title: "Trigger payment (optional)",
       description: "Programmatically start payment flow",
-      code: `function startPayment() {
-  ckPaySDK.PaymentComponent.renderPaymentModal({}, function() {
-    console.log('Payment complete');
-    ckPaySDK.PaymentComponent.removePaymentModal();
-  });
-}`,
+      code: `    const startPaymentFlow = () => {
+        ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
+          console.log('Payment complete');
+          // hide the modal when payment is done
+          ckPaySDK.PaymentComponent.removePaymentModal();
+        });
+      };
+      ;`,
       buttonText: "Copy"
     }
   ];

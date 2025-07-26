@@ -24,23 +24,30 @@ const DocumentationPage = () => {
       title: "HTML Integration",
       description: "Add ckPay to your website with simple HTML",
       code: `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>ckPay Integration</title>
-  <script src="https://zkg6o-xiaaa-aaaag-acofa-cai.icp0.io/cdkPay.js"></script>
-</head>
-<body>
-  <div id="payment-modal"></div>
-  <button onclick="startPayment()">Pay Now</button>
-  
-  <script>
-    function startPayment() {
-      ckPaySDK.PaymentComponent.initialize('payment-modal');
-    }
-  </script>
-</body>
-</html>`
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>SDK Name HTML Integration</title>
+        <script src="https://zkg6o-xiaaa-aaaag-acofa-cai.icp0.io/cdkPay.js"></script>
+      </head>
+      <body>
+        <div id="payment-modal"></div>
+        <button onclick="startPaymentFlow()">Start Payment</button>
+        <script>
+          const startPaymentFlow = () => {
+            ckPaySDK.PaymentComponent.renderPaymentModal({}, function () {
+              console.log('Payment complete');
+              // hide the modal when payment is done
+              ckPaySDK.PaymentComponent.removePaymentModal();
+            });
+          };
+      
+          window.onload = function() {
+            ckPaySDK.PaymentComponent.initialize('payment-modal');
+          };
+        </script>
+      </body>
+      </html>`
     },
     {
       id: "react-integration",

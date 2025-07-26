@@ -10,9 +10,9 @@ import "./index.css";
 // Payment Context to share state
 const PaymentContext = createContext();
 
-const PaymentProvider = ({ children, initialAmount, initialCurrency }) => {
-  const [selectedMethod, setSelectedMethod] = useState(initialCurrency || 'icp');
-  const [amount, setAmount] = useState(initialAmount || '');
+const PaymentProvider = ({ children }) => {
+  const [selectedMethod, setSelectedMethod] = useState('icp');
+  const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState(null);
   const [error, setError] = useState(null);
 
@@ -25,6 +25,7 @@ const PaymentProvider = ({ children, initialAmount, initialCurrency }) => {
 
 const usePayment = () => useContext(PaymentContext);
 
+// Combined Auth and Payment Method Step
 const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, login, logout, props }) => {
   const { selectedMethod, setSelectedMethod, amount, setAmount, error, setError, setTransactionId } = usePayment();
   const { balances } = useTokens();
@@ -157,7 +158,7 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
           {/* Principal Display */}
           <div className="mb-8">
             <h3 className="text-xl font-medium text-foreground mb-4">Your Wallet Principal</h3>
-            <div className="relative bg-gradient-to-r from-primary/10 to-accent/10 p-4 rounded-xl border border-primary/20 shadow-md hover:shadow-lg transition-shadow flex items-center justify-between">
+            <div className="relative bg-gradient-to-r from-primary/30 to-accent/30 p-4 rounded-xl border border-primary/50 shadow-md hover:shadow-xl transition-shadow flex items-center justify-between bg-opacity-90">
               <span className="font-mono text-sm text-foreground truncate max-w-[70%]">
                 {principal ? principal.toText() : 'No principal available'}
               </span>
@@ -167,7 +168,7 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
                 onClick={handleCopyPrincipal}
                 disabled={!principal}
                 className={`p-2 rounded-lg flex items-center gap-2 ${
-                  isCopied ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary/80'
+                  isCopied ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary/90'
                 } transition-colors`}
               >
                 {isCopied ? (
@@ -364,8 +365,6 @@ const PaymentComponent = ({
   steps, 
   removePaymentModal,
   onPayment,
-  amount: initialAmount,
-  currency: initialCurrency,
   ...props 
 }) => {
   const { isAuthenticated, login, logout } = useAuth();
@@ -378,8 +377,8 @@ const PaymentComponent = ({
 
   // Debug log for step changes
   useEffect(() => {
-    console.log('Current step:', activeSteps[currentStepIndex]?.type);
-  }, [currentStepIndex]);
+    console.log('Current step:', steps ? steps[currentStepIndex]?.type : 'using defaultSteps');
+  }, [currentStepIndex, steps]);
 
   const defaultSteps = [
     { type: 'payment', title: 'Payment', data: {} },
@@ -407,7 +406,7 @@ const PaymentComponent = ({
   }
 
   return (
-    <PaymentProvider initialAmount={initialAmount} initialCurrency={initialCurrency}>
+    <PaymentProvider>
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
@@ -461,9 +460,10 @@ const MyLibrary = {
     if (!modalContainer || !root) throw new Error("You must initialize MyLibrary first");
 
     const defaultProps = {
-      steps: null, // Use default flow
-      amount: '',
-      currency: 'icp'
+      steps: [
+        { type: 'payment', title: 'Payment', data: {} },
+        { type: 'success', title: 'Success', data: {} },
+      ],
     };
 
     props = { ...defaultProps, ...options, ...props };
@@ -493,5 +493,9 @@ const MyLibrary = {
   buyItem,
   getItem
 };
+
+// Expose MyLibrary as ckPaySDK.PaymentComponent
+window.ckPaySDK = window.ckPaySDK || {};
+window.ckPaySDK.PaymentComponent = MyLibrary;
 
 export default MyLibrary;
