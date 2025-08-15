@@ -34,10 +34,10 @@
         "internet_identity"
         ],
       "frontend": {
-        "entrypoint": "ckPayment-web3/dist/index.html"
+        "entrypoint": "dist/index.html"
       },
       "source": [
-        "ckPayment-web3/dist"
+        "dist"
       ],
       "type": "assets"
     }

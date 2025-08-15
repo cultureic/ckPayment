@@ -3,18 +3,51 @@ const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
+const { execSync } = require("child_process");
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-const frontendDirectory = "payment_frontend";
-const frontend_entry = path.join("src", frontendDirectory, "src", "index.html");
+// Build ckPayment-web3 first
+class BuildCkPaymentPlugin {
+  apply(compiler) {
+    compiler.hooks.beforeRun.tapAsync('BuildCkPaymentPlugin', (compilation, callback) => {
+      console.log('🔨 Building ckPayment-web3...');
+      try {
+        execSync('npm run build', { 
+          cwd: path.join(__dirname, 'ckPayment-web3'),
+          stdio: 'inherit'
+        });
+        console.log('✅ ckPayment-web3 build completed');
+        callback();
+      } catch (error) {
+        console.error('❌ ckPayment-web3 build failed:', error.message);
+        callback(error);
+      }
+    });
+    
+    compiler.hooks.watchRun.tapAsync('BuildCkPaymentPlugin', (compilation, callback) => {
+      console.log('🔨 Rebuilding ckPayment-web3...');
+      try {
+        execSync('npm run build', { 
+          cwd: path.join(__dirname, 'ckPayment-web3'),
+          stdio: 'inherit'
+        });
+        console.log('✅ ckPayment-web3 rebuild completed');
+        callback();
+      } catch (error) {
+        console.error('❌ ckPayment-web3 rebuild failed:', error.message);
+        callback(error);
+      }
+    });
+  }
+}
 
 module.exports = {
   target: "web",
   mode: isDevelopment ? "development" : "production",
   entry: {
-    index: path.join(__dirname, frontend_entry).replace(/\.html$/, ".js"),
-    cdkPay: path.join(__dirname, "src", "SDK", "ckPay.js")
+    // Use the built ckPayment-web3 as main entry
+    index: path.join(__dirname, "src", "SDK", "ckPay.js")
   },
   devtool: isDevelopment ? "source-map" : false,
   optimization: {
@@ -93,10 +126,7 @@ module.exports = {
     ],
   },
   plugins: [
-    new HtmlWebpackPlugin({
-      template: path.join(__dirname, frontend_entry),
-      cache: false,
-    }),
+    new BuildCkPaymentPlugin(),
     new webpack.EnvironmentPlugin([
       ...Object.keys(process.env).filter((key) => key.includes("CANISTER") || key.includes("DFX")),
     ]),
@@ -106,15 +136,25 @@ module.exports = {
     }),
     new CopyPlugin({
       patterns: [
+        // Copy the entire ckPayment-web3 build to dist (excluding the conflicting index.html)
         {
-          from: `src/${frontendDirectory}/src/.ic-assets.json*`,
-          to: ".ic-assets.json5",
-          noErrorOnMissing: true,
+          from: "ckPayment-web3/dist",
+          to: ".",
+          noErrorOnMissing: false,
+          globOptions: {
+            ignore: ["**/index.html"]
+          }
         },
-        // Copy static assets to dist folder
+        // Copy the index.html specifically and modify it to include our SDK bundle
         {
-          from: `src/${frontendDirectory}/assets`,
-          to: "assets",
+          from: "ckPayment-web3/dist/index.html",
+          to: "index.html",
+          noErrorOnMissing: false,
+        },
+        // Copy .ic-assets.json if exists
+        {
+          from: "ckPayment-web3/dist/.ic-assets.json*",
+          to: ".ic-assets.json5",
           noErrorOnMissing: true,
         }
       ],
@@ -130,9 +170,9 @@ module.exports = {
         },
       },
     },
-    static: path.resolve(__dirname, "src", frontendDirectory, "assets"),
+    static: path.resolve(__dirname, "ckPayment-web3/dist"),
     hot: true,
-    watchFiles: [path.resolve(__dirname, "src", frontendDirectory)],
+    watchFiles: [path.resolve(__dirname, "ckPayment-web3")],
     liveReload: true,
   },
 };
