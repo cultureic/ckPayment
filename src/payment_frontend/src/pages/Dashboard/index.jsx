@@ -237,6 +237,7 @@ function Wallet({ principal, balance, setBalance }) {
 import React, { useEffect, useState } from "react";
 import BubbleWidget from "../../components/BubbleWidget";
 import Header from "../../components/Header";
+import Factory from "../../components/Factory";
 import "./index.css";
 import { useAuth } from "../../auth";
 let defaultProfilePic = "../../../assets/btc_station.png"
@@ -315,6 +316,15 @@ function Dahsboard() {
           </span>{" "}
           Wallet
         </h1>
+        <h1
+          onClick={() => handleTabClick("factory")}
+          className={activeTab === "factory" ? "active" : ""}
+        >
+          <span role="img" aria-label="Factory">
+            🏭
+          </span>{" "}
+          Factory
+        </h1>
       </nav>
       <section>
         {activeTab === "store-profile" && <StoreProfile principal={principal} />}
@@ -326,6 +336,7 @@ function Dahsboard() {
             setBalance={setBalance}
           />
         )}
+        {activeTab === "factory" && <Factory />}
       </section>
       <BubbleWidget />
     </div>

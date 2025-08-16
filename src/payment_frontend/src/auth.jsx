@@ -2,7 +2,7 @@ import { AuthClient } from "@dfinity/auth-client";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { canisterId, createActor } from "../../declarations/payment_backend";
 // import { canisterIdicEth, createActoricEth } from "../../declarations/icEth";
-import {canisterIcrc1,createActorIcrc1} from "../../declarations/ckbtc_ledger";
+import {canisterId as canisterIcrc1,createActor as createActorIcrc1} from "../../declarations/ckbtc_ledger";
 
 
 const AuthContext = createContext(null);
@@ -81,11 +81,11 @@ export const useAuthClient = (options = defaultOptions) => {
         identity,
       },
     });
-    const icEthActor = createActoricEth(canisterIdicEth,{
-      agentOptions: {
-        identity,
-      }
-    })
+    // const icEthActor = createActoricEth(canisterIdicEth,{
+    //   agentOptions: {
+    //     identity,
+    //   }
+    // })
     const ckBtcActor = createActorIcrc1(canisterIcrc1,{
       agentOptions:{
         identity,
@@ -93,7 +93,7 @@ export const useAuthClient = (options = defaultOptions) => {
     })
     console.log("actor",actor)
     setbackendActor(actor);
-    setIcEthActor(icEthActor)
+    setIcEthActor(null) // Disabled for now
     setCkBtcActor(ckBtcActor)
   }
 
