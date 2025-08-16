@@ -9,8 +9,12 @@ import {
   RefreshCw,
   AlertCircle,
   Wifi,
-  WifiOff
+  WifiOff,
+  LogOut,
+  User,
+  Factory
 } from 'lucide-react';
+import { useAuth, withAuth, UserInfo, LogoutButton } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +33,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   canisterId,
   refreshInterval = 30000
 }) => {
+  // Authentication hook
+  const { principal, isAuthenticated } = useAuth();
+  
   // State Management
   const [activeTab, setActiveTab] = useState<DashboardTab>(defaultTab);
   
@@ -39,6 +46,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     config,
     webhooks,
     isLoading,
+    isRefreshing,
     error,
     hasError,
     refetch,
@@ -53,8 +61,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     fallbackToMock: true
   });
 
-  // Loading State
-  if (isLoading) {
+  // Loading State - only show main loading when we have no data at all
+  if (isLoading && !data) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -89,6 +97,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             
             <div className="flex items-center space-x-2">
+              {/* User Authentication Info */}
+              {principal && (
+                <Badge variant="outline" className="text-xs">
+                  {principal.slice(0, 8)}...{principal.slice(-4)}
+                </Badge>
+              )}
+              
               <Badge variant="outline" className="text-xs">
                 Preview Mode
               </Badge>
@@ -115,6 +130,12 @@ const Dashboard: React.FC<DashboardProps> = ({
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
+              
+              {/* User Info and Logout */}
+              <div className="flex items-center space-x-2">
+                <UserInfo />
+                <LogoutButton />
+              </div>
             </div>
           </div>
         </div>
@@ -170,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Tabs Navigation */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
-            <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+            <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
               <TabsTrigger value="analytics" className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Analytics</span>
@@ -183,13 +204,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Webhook className="h-4 w-4" />
                 <span>Webhooks</span>
               </TabsTrigger>
+              <TabsTrigger value="factory" className="flex items-center space-x-2">
+                <Factory className="h-4 w-4" />
+                <span>Factory</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Tab Content */}
             <div className="mt-8">
-              <TabsContent value="analytics">
+            <TabsContent value="analytics">
                 <Card className="p-6">
-                  {isLoading ? (
+                  {isLoading && !metrics ? (
                     <div className="text-center py-12">
                       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
                       <p className="text-muted-foreground">Loading analytics...</p>
@@ -197,7 +222,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   ) : metrics ? (
                     <MetricsGrid 
                       metrics={metrics}
-                      loading={isLoading}
+                      loading={isRefreshing}
                       error={hasError}
                       lastUpdated={lastRefresh}
                       isUsingMockData={isUsingMockData}
@@ -217,7 +242,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
               <TabsContent value="config">
                 <Card className="p-6">
-                  {isLoading ? (
+                  {isLoading && !config ? (
                     <div className="text-center py-12">
                       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
                       <p className="text-muted-foreground">Loading configuration...</p>
@@ -287,7 +312,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
               <TabsContent value="webhooks">
                 <Card className="p-6">
-                  {isLoading ? (
+                  {isLoading && !webhooks ? (
                     <div className="text-center py-12">
                       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
                       <p className="text-muted-foreground">Loading webhooks...</p>
@@ -341,6 +366,85 @@ const Dashboard: React.FC<DashboardProps> = ({
                   )}
                 </Card>
               </TabsContent>
+
+              <TabsContent value="factory">
+                <Card className="p-6">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Payment Factory</h3>
+                      <Badge variant="outline">Management Interface</Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Factory Overview */}
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Factory Status</h4>
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Factory Contract</span>
+                            <Badge variant="default">Active</Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Deployed payment contract factory for creating new payment instances
+                          </div>
+                        </div>
+                        
+                        <div className="p-4 border rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Deployed Contracts</span>
+                            <span className="text-sm font-bold">12</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Total payment contracts created via factory
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Factory Actions */}
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Quick Actions</h4>
+                        <div className="space-y-3">
+                          <Button className="w-full justify-start" variant="outline">
+                            <Factory className="h-4 w-4 mr-2" />
+                            Deploy New Payment Contract
+                          </Button>
+                          <Button className="w-full justify-start" variant="outline">
+                            <Settings className="h-4 w-4 mr-2" />
+                            Configure Factory Settings
+                          </Button>
+                          <Button className="w-full justify-start" variant="outline">
+                            <BarChart3 className="h-4 w-4 mr-2" />
+                            View Factory Analytics
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Recent Deployments */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Recent Deployments</h4>
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="flex items-center justify-between p-3 border rounded">
+                            <div>
+                              <div className="font-medium text-sm">Payment Contract #{i + 9}</div>
+                              <div className="text-xs text-muted-foreground">Deployed 2 hours ago</div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="default">Live</Badge>
+                              <Button size="sm" variant="ghost">Manage</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      Full factory management interface with contract deployment, configuration, and monitoring capabilities will be implemented in the next development phase.
+                    </div>
+                  </div>
+                </Card>
+              </TabsContent>
             </div>
           </Tabs>
         </div>
@@ -349,4 +453,4 @@ const Dashboard: React.FC<DashboardProps> = ({
   );
 };
 
-export default Dashboard;
+export default withAuth(Dashboard);

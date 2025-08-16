@@ -154,7 +154,7 @@ export interface DashboardData {
 export type Environment = 'development' | 'staging' | 'production';
 export type ConnectionStatus = 'active' | 'inactive' | 'error' | 'testing';
 export type WebhookStatus = 'active' | 'inactive' | 'error' | 'paused';
-export type DashboardTab = 'analytics' | 'config' | 'webhooks';
+export type DashboardTab = 'analytics' | 'config' | 'webhooks' | 'factory';
 
 export type Permission = 
   | 'read_metrics'
@@ -361,7 +361,7 @@ export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
 export type OptionalFields<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 // Constants
-export const DASHBOARD_TABS = ['analytics', 'config', 'webhooks'] as const;
+export const DASHBOARD_TABS = ['analytics', 'config', 'webhooks', 'factory'] as const;
 export const ENVIRONMENTS = ['development', 'staging', 'production'] as const;
 export const WEBHOOK_EVENTS = [
   'payment.completed',
