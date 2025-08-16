@@ -130,6 +130,50 @@ pub async fn install_code(
     Ok(())
 }
 
+/// Upgrade code on an existing canister
+pub async fn upgrade_code(
+    canister_id: Principal,
+    wasm_module: Vec<u8>,
+    arg: Vec<u8>,
+) -> Result<(), CallError> {
+    let install_code = InstallCodeArgs {
+        mode: CanisterInstallMode::Upgrade,
+        canister_id: PrincipalId::from(canister_id),
+        wasm_module,
+        arg,
+        compute_allocation: None,
+        memory_allocation: None,
+        sender_canister_version: None,
+    };
+
+    call("install_code", 0, &install_code).await?;
+
+    Ok(())
+}
+
+/// Upgrade an existing user payment canister to the latest WASM
+pub async fn upgrade_user_canister(
+    canister_id: Principal,
+    owner: Principal,
+) -> Result<(), String> {
+    // Get the WASM module
+    let wasm = user_canister_wasm();
+    if wasm.is_empty() {
+        return Err("User canister WASM not available".to_string());
+    }
+    
+    // For upgrade, we pass empty initialization args since we're preserving existing state
+    let arg = vec![];
+
+    // Upgrade the user payment canister code
+    upgrade_code(canister_id, wasm.to_vec(), arg)
+        .await
+        .map_err(|e| format!("{} - {:?}", e.method, e.reason))?;
+
+    Ok(())
+}
+
+
 /// Create a default user canister configuration
 fn create_default_user_config() -> UserCanisterConfig {
     let default_token = TokenConfig {
@@ -318,9 +362,7 @@ pub fn set_user_canister_wasm(wasm: Vec<u8>, caller: Principal) -> Result<(), St
 
 /// Check if caller is admin
 fn is_admin(caller: Principal) -> bool {
-    // TODO: Implement proper admin check
-    // For now, only the factory canister itself can be admin
-    caller == ic_cdk::id() || caller.to_text() == "2vxsx-fae"
+    caller.to_text() == "ouuvn-c7hpi-46km4-ywlnr-j2ten-wldfi-xu53v-vth6u-3qtqr-cmbxu-gqe"
 }
 
 #[cfg(test)]

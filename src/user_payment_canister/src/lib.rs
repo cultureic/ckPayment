@@ -229,6 +229,145 @@ fn get_supported_tokens() -> Vec<TokenConfig> {
     CONFIG.with(|c| c.borrow().get().supported_tokens.clone())
 }
 
+#[ic_cdk::update]
+fn add_supported_token(token: TokenConfig) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can add tokens".to_string());
+    }
+
+    // Validate token configuration
+    if token.symbol.is_empty() {
+        return Err("Token symbol cannot be empty".to_string());
+    }
+    if token.name.is_empty() {
+        return Err("Token name cannot be empty".to_string());
+    }
+    if token.canister_id == Principal::anonymous() {
+        return Err("Token canister ID cannot be anonymous".to_string());
+    }
+
+    CONFIG.with(|c| {
+        let mut config = c.borrow().get().clone();
+        
+        // Check if token already exists (by symbol or canister_id)
+        if config.supported_tokens.iter().any(|t| t.symbol == token.symbol || t.canister_id == token.canister_id) {
+            return Err("Token with this symbol or canister ID already exists".to_string());
+        }
+        
+        // Add the new token
+        config.supported_tokens.push(token);
+        c.borrow_mut().set(config).unwrap();
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn remove_supported_token(token_symbol: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can remove tokens".to_string());
+    }
+
+    CONFIG.with(|c| {
+        let mut config = c.borrow().get().clone();
+        
+        let initial_len = config.supported_tokens.len();
+        config.supported_tokens.retain(|t| t.symbol != token_symbol);
+        
+        if config.supported_tokens.len() == initial_len {
+            return Err("Token not found".to_string());
+        }
+        
+        // Ensure at least one token remains
+        if config.supported_tokens.is_empty() {
+            return Err("Cannot remove the last supported token".to_string());
+        }
+        
+        c.borrow_mut().set(config).unwrap();
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn update_supported_token(token_symbol: String, updated_token: TokenConfig) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can update tokens".to_string());
+    }
+
+    // Validate updated token configuration
+    if updated_token.symbol.is_empty() {
+        return Err("Token symbol cannot be empty".to_string());
+    }
+    if updated_token.name.is_empty() {
+        return Err("Token name cannot be empty".to_string());
+    }
+    if updated_token.canister_id == Principal::anonymous() {
+        return Err("Token canister ID cannot be anonymous".to_string());
+    }
+
+    CONFIG.with(|c| {
+        let mut config = c.borrow().get().clone();
+        
+        // Find the token to update
+        let token_index = config.supported_tokens
+            .iter()
+            .position(|t| t.symbol == token_symbol)
+            .ok_or("Token not found")?;
+            
+        let old_token = &config.supported_tokens[token_index];
+        
+        // If symbol is changing, check for conflicts
+        if old_token.symbol != updated_token.symbol {
+            if config.supported_tokens.iter().any(|t| t.symbol == updated_token.symbol) {
+                return Err("A token with the new symbol already exists".to_string());
+            }
+        }
+        
+        // If canister_id is changing, check for conflicts
+        if old_token.canister_id != updated_token.canister_id {
+            if config.supported_tokens.iter().any(|t| t.canister_id == updated_token.canister_id) {
+                return Err("A token with the new canister ID already exists".to_string());
+            }
+        }
+        
+        // Update the token
+        config.supported_tokens[token_index] = updated_token;
+        c.borrow_mut().set(config).unwrap();
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn toggle_token_status(token_symbol: String) -> Result<bool, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can toggle token status".to_string());
+    }
+
+    CONFIG.with(|c| {
+        let mut config = c.borrow().get().clone();
+        
+        if let Some(token) = config.supported_tokens.iter_mut().find(|t| t.symbol == token_symbol) {
+            token.is_active = !token.is_active;
+            let new_status = token.is_active;
+            c.borrow_mut().set(config).unwrap();
+            Ok(new_status)
+        } else {
+            Err("Token not found".to_string())
+        }
+    })
+}
+
 // ============================================================================
 // PAYMENT PROCESSING
 // ============================================================================
@@ -467,6 +606,32 @@ fn whoami() -> Principal {
 #[ic_cdk::query]
 fn get_owner() -> Principal {
     OWNER.with(|o| *o.borrow().get())
+}
+
+#[ic_cdk::update]
+fn admin_update_owner(new_owner: Principal) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let current_owner = OWNER.with(|o| *o.borrow().get());
+    
+    // Only current owner or controllers can change ownership
+    if caller != current_owner {
+        // Check if caller is a controller by attempting to call a management canister function
+        // This is a simple way to verify controller status
+        // In practice, you might want a more sophisticated check
+        
+        // For now, we'll also allow the admin principal (factory owner) to update ownership
+        let admin_principal = "ouuvn-c7hpi-46km4-ywlnr-j2ten-wldfi-xu53v-vth6u-3qtqr-cmbxu-gqe";
+        if caller.to_text() != admin_principal {
+            return Err("Only the current owner or admin can update ownership".to_string());
+        }
+    }
+    
+    if new_owner == Principal::anonymous() {
+        return Err("Cannot set owner to anonymous principal".to_string());
+    }
+    
+    OWNER.with(|o| o.borrow_mut().set(new_owner).unwrap());
+    Ok(())
 }
 
 #[ic_cdk::query]
