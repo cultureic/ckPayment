@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Menu, X, ExternalLink } from "lucide-react";
+import { Menu, X, ExternalLink, LayoutDashboard, User } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -9,6 +10,7 @@ const Navbar = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated, principal } = useAuth();
 
   const scrollToSection = (id: string) => {
     // Handle docs navigation
@@ -194,6 +196,21 @@ const Navbar = () => {
                 </button>
               );
             })}
+            
+            {/* Dashboard Link */}
+            <Link
+              to="/dashboard"
+              className={`text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1 ${
+                location.pathname === '/dashboard' ? 'text-primary' : ''
+              }`}
+              title={isAuthenticated ? `Dashboard (${principal?.slice(0, 8)}...)` : 'Access Dashboard'}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Dashboard</span>
+              {isAuthenticated && (
+                <div className="w-2 h-2 bg-green-500 rounded-full" title="Authenticated" />
+              )}
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -284,6 +301,23 @@ const Navbar = () => {
                 </button>
               );
             })}
+            
+            {/* Dashboard Link - Mobile */}
+            <Link
+              to="/dashboard"
+              className={`py-3 px-4 text-left hover:bg-muted rounded-md transition-colors flex items-center space-x-2 w-full ${
+                location.pathname === '/dashboard' ? 'text-primary bg-muted/50' : 'text-foreground'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+              title={isAuthenticated ? `Dashboard (${principal?.slice(0, 8)}...)` : 'Access Dashboard'}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Dashboard</span>
+              {isAuthenticated && (
+                <div className="w-2 h-2 bg-green-500 rounded-full ml-auto" title="Authenticated" />
+              )}
+            </Link>
+            
             <Button 
               className="mt-4 w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-soft hover:shadow-glow-primary transition-all duration-300"
               onClick={() => scrollToSection('get-started')}

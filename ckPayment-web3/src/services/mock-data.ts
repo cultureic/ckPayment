@@ -28,18 +28,20 @@ import {
 export class MockDataService {
   private static instance: MockDataService;
   private baseMetrics: Partial<MetricsData>;
+  private cachedData: DashboardData | null = null;
   private lastGenerated: number = 0;
-  private readonly CACHE_DURATION = 5000; // 5 seconds
+  private readonly CACHE_DURATION = 30000; // 30 seconds - much longer cache
+  private readonly SEED = 12345; // Consistent seed for reproducible "randomness"
 
   constructor() {
-    // Initialize base metrics for consistent variations
+    // Initialize base metrics for consistent variations (using fixed seed for consistency)
     this.baseMetrics = {
-      payments: 1247 + Math.floor(Math.random() * 500),
-      errors: 23 + Math.floor(Math.random() * 20),
-      transactions: 1270 + Math.floor(Math.random() * 520),
-      revenue: 45678.90 + Math.random() * 10000,
-      conversionRate: 3.2 + Math.random() * 2,
-      activeUsers: 892 + Math.floor(Math.random() * 200),
+      payments: 1247,
+      errors: 23,
+      transactions: 1270,
+      revenue: 45678.90,
+      conversionRate: 3.2,
+      activeUsers: 892,
     };
   }
 
@@ -56,29 +58,32 @@ export class MockDataService {
   generateMetricsData(): MetricsData {
     const now = Date.now();
     
-    // Add some variation to base metrics over time
-    const timeVariation = Math.sin(now / 100000) * 0.1 + 1; // Slow oscillation
-    const randomVariation = Math.random() * 0.2 + 0.9; // 90-110% variation
+    // Much slower and more stable variations based on time
+    const timeVariation = Math.sin(now / 1000000) * 0.05 + 1; // Very slow oscillation, ±5%
+    const microVariation = Math.sin(now / 100000) * 0.02 + 1; // Small micro variations, ±2%
     
-    const payments = Math.round((this.baseMetrics.payments || 1247) * timeVariation * randomVariation);
-    const errors = Math.round((this.baseMetrics.errors || 23) * randomVariation);
-    const transactions = payments + errors + Math.floor(Math.random() * 50);
-    const revenue = (this.baseMetrics.revenue || 45678.90) * timeVariation * randomVariation;
-    const activeUsers = Math.round((this.baseMetrics.activeUsers || 892) * timeVariation * randomVariation);
+    const payments = Math.round((this.baseMetrics.payments || 1247) * timeVariation * microVariation);
+    const errors = Math.round((this.baseMetrics.errors || 23) * microVariation);
+    const transactions = payments + errors + Math.floor(timeVariation * 20); // More predictable transaction count
+    const revenue = (this.baseMetrics.revenue || 45678.90) * timeVariation * microVariation;
+    const activeUsers = Math.round((this.baseMetrics.activeUsers || 892) * timeVariation * microVariation);
+    
+    // Create stable trend changes based on time instead of random
+    const trendSeed = Math.sin(now / 500000); // Very slow trend changes
     
     return {
       payments,
       errors,
       transactions,
       revenue,
-      conversionRate: Math.max(1.5, Math.min(6.0, (this.baseMetrics.conversionRate || 3.2) * randomVariation)),
+      conversionRate: Math.max(1.5, Math.min(6.0, (this.baseMetrics.conversionRate || 3.2) * microVariation)),
       activeUsers,
       chartData: this.generateChartData(payments, errors, revenue, activeUsers),
       trends: {
-        paymentsChange: (Math.random() - 0.5) * 20, // -10% to +10%
-        errorsChange: (Math.random() - 0.5) * 10, // -5% to +5%
-        revenueChange: (Math.random() - 0.5) * 15, // -7.5% to +7.5%
-        usersChange: (Math.random() - 0.5) * 25, // -12.5% to +12.5%
+        paymentsChange: trendSeed * 8, // -8% to +8%
+        errorsChange: trendSeed * -4, // Errors trend opposite to payments
+        revenueChange: trendSeed * 6, // -6% to +6%
+        usersChange: trendSeed * 10, // -10% to +10%
       }
     };
   }
@@ -350,15 +355,30 @@ export class MockDataService {
   }
 
   /**
-   * Generate complete dashboard data
+   * Generate complete dashboard data with caching
    */
   generateDashboardData(): DashboardData {
-    return {
+    const now = Date.now();
+    
+    // Return cached data if still valid
+    if (this.cachedData && (now - this.lastGenerated) < this.CACHE_DURATION) {
+      // Update only the timestamp to show data freshness
+      return {
+        ...this.cachedData,
+        lastRefreshed: new Date().toISOString(),
+      };
+    }
+    
+    // Generate new data if cache is expired or empty
+    this.cachedData = {
       metrics: this.generateMetricsData(),
       config: this.generateConfigData(),
       webhooks: this.generateWebhooksData(),
       lastRefreshed: new Date().toISOString(),
     };
+    
+    this.lastGenerated = now;
+    return this.cachedData;
   }
 
   /**

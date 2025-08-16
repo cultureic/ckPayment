@@ -30,16 +30,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-
-export interface FilterState {
-  dateRange?: DateRange;
-  searchQuery: string;
-  tokenTypes: string[];
-  statusFilters: string[];
-  metricTypes: string[];
-  sortBy: string;
-  sortOrder: 'asc' | 'desc';
-}
+import { FilterState } from '@/hooks/useFilters';
 
 interface FilterControlsProps {
   filters: FilterState;
@@ -138,13 +129,13 @@ const FilterControls: React.FC<FilterControlsProps> = ({
     });
   };
 
-  // Count active filters
+  // Count active filters with null checks
   const activeFiltersCount = [
-    filters.dateRange ? 1 : 0,
-    filters.searchQuery ? 1 : 0,
-    filters.tokenTypes.length,
-    filters.statusFilters.length,
-    filters.metricTypes.length
+    filters?.dateRange ? 1 : 0,
+    filters?.searchQuery ? 1 : 0,
+    filters?.tokenTypes?.length || 0,
+    filters?.statusFilters?.length || 0,
+    filters?.metricTypes?.length || 0
   ].reduce((sum, count) => sum + count, 0);
 
   return (
@@ -156,7 +147,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search transactions, users, or IDs..."
-            value={filters.searchQuery}
+            value={filters?.searchQuery || ''}
             onChange={(e) => updateFilters({ searchQuery: e.target.value })}
             className="pl-10"
           />
@@ -234,11 +225,12 @@ const FilterControls: React.FC<FilterControlsProps> = ({
                     <div key={token.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={token.id}
-                        checked={filters.tokenTypes.includes(token.id)}
+                        checked={filters?.tokenTypes?.includes(token.id) || false}
                         onCheckedChange={(checked) => {
+                          const currentTokenTypes = filters?.tokenTypes || [];
                           const newTokenTypes = checked
-                            ? [...filters.tokenTypes, token.id]
-                            : filters.tokenTypes.filter(t => t !== token.id);
+                            ? [...currentTokenTypes, token.id]
+                            : currentTokenTypes.filter(t => t !== token.id);
                           updateFilters({ tokenTypes: newTokenTypes });
                         }}
                       />
@@ -264,11 +256,12 @@ const FilterControls: React.FC<FilterControlsProps> = ({
                     <div key={status.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={status.id}
-                        checked={filters.statusFilters.includes(status.id)}
+                        checked={filters?.statusFilters?.includes(status.id) || false}
                         onCheckedChange={(checked) => {
+                          const currentStatusFilters = filters?.statusFilters || [];
                           const newStatusFilters = checked
-                            ? [...filters.statusFilters, status.id]
-                            : filters.statusFilters.filter(s => s !== status.id);
+                            ? [...currentStatusFilters, status.id]
+                            : currentStatusFilters.filter(s => s !== status.id);
                           updateFilters({ statusFilters: newStatusFilters });
                         }}
                       />
@@ -294,11 +287,12 @@ const FilterControls: React.FC<FilterControlsProps> = ({
                     <div key={metric.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={metric.id}
-                        checked={filters.metricTypes.includes(metric.id)}
+                        checked={filters?.metricTypes?.includes(metric.id) || false}
                         onCheckedChange={(checked) => {
+                          const currentMetricTypes = filters?.metricTypes || [];
                           const newMetricTypes = checked
-                            ? [...filters.metricTypes, metric.id]
-                            : filters.metricTypes.filter(m => m !== metric.id);
+                            ? [...currentMetricTypes, metric.id]
+                            : currentMetricTypes.filter(m => m !== metric.id);
                           updateFilters({ metricTypes: newMetricTypes });
                         }}
                       />
@@ -398,37 +392,37 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             </Badge>
           )}
           
-          {filters.tokenTypes.map((token) => (
+          {(filters?.tokenTypes || []).map((token) => (
             <Badge key={token} variant="secondary" className="flex items-center space-x-1">
               <span>{token}</span>
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => updateFilters({ 
-                  tokenTypes: filters.tokenTypes.filter(t => t !== token) 
+                  tokenTypes: (filters?.tokenTypes || []).filter(t => t !== token) 
                 })}
               />
             </Badge>
           ))}
           
-          {filters.statusFilters.map((status) => (
+          {(filters?.statusFilters || []).map((status) => (
             <Badge key={status} variant="secondary" className="flex items-center space-x-1">
               <span>{status}</span>
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => updateFilters({ 
-                  statusFilters: filters.statusFilters.filter(s => s !== status) 
+                  statusFilters: (filters?.statusFilters || []).filter(s => s !== status) 
                 })}
               />
             </Badge>
           ))}
           
-          {filters.metricTypes.map((metric) => (
+          {(filters?.metricTypes || []).map((metric) => (
             <Badge key={metric} variant="secondary" className="flex items-center space-x-1">
               <span>{metricTypes.find(m => m.id === metric)?.label}</span>
               <X 
                 className="h-3 w-3 cursor-pointer" 
                 onClick={() => updateFilters({ 
-                  metricTypes: filters.metricTypes.filter(m => m !== metric) 
+                  metricTypes: (filters?.metricTypes || []).filter(m => m !== metric) 
                 })}
               />
             </Badge>
