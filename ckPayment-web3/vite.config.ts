@@ -5,9 +5,30 @@ import { componentTagger } from "lovable-tagger";
 import { copyFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 
-// Plugin to copy SDK bundle
-const copySDKPlugin = () => ({
-  name: 'copy-sdk-bundle',
+// Plugin to build and copy SDK bundle
+const buildSDKPlugin = () => ({
+  name: 'build-sdk-bundle',
+  buildStart: async () => {
+    console.log('🔨 Building fresh SDK bundle...');
+    const { execSync } = await import('child_process');
+    const { config } = await import('dotenv');
+    
+    // Load environment variables from parent directory .env file
+    config({ path: path.resolve(__dirname, '../.env') });
+    
+    try {
+      // Build the SDK using webpack with inherited environment
+      execSync('npx webpack --config webpack.sdk.config.js', {
+        cwd: path.resolve(__dirname, '..'),
+        stdio: 'inherit',
+        env: { ...process.env } // Pass through all environment variables
+      });
+      console.log('✅ SDK bundle build completed');
+    } catch (error) {
+      console.error('❌ SDK bundle build failed:', error.message);
+      throw error;
+    }
+  },
   writeBundle: async () => {
     const sdkSourceDir = path.resolve(__dirname, '../bundleSDK');
     const sdkTargetDir = path.resolve(__dirname, 'dist');
@@ -43,7 +64,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === 'development' &&
     componentTagger(),
-    copySDKPlugin(),
+    buildSDKPlugin(),
   ].filter(Boolean),
   resolve: {
     alias: {

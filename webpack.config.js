@@ -5,13 +5,16 @@ const TerserPlugin = require("terser-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 const { execSync } = require("child_process");
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const isDevelopment = process.env.NODE_ENV !== "production";
 
-// Build ckPayment-web3 first
+// Build ckPayment-web3 first (SDK build is now handled by Vite plugin)
 class BuildCkPaymentPlugin {
   apply(compiler) {
     compiler.hooks.beforeRun.tapAsync('BuildCkPaymentPlugin', (compilation, callback) => {
-      console.log('🔨 Building ckPayment-web3...');
+      console.log('🔨 Building ckPayment-web3 (includes fresh SDK build)...');
       try {
         execSync('npm run build', { 
           cwd: path.join(__dirname, 'ckPayment-web3'),
@@ -26,7 +29,7 @@ class BuildCkPaymentPlugin {
     });
     
     compiler.hooks.watchRun.tapAsync('BuildCkPaymentPlugin', (compilation, callback) => {
-      console.log('🔨 Rebuilding ckPayment-web3...');
+      console.log('🔨 Rebuilding ckPayment-web3 (includes fresh SDK build)...');
       try {
         execSync('npm run build', { 
           cwd: path.join(__dirname, 'ckPayment-web3'),
@@ -67,7 +70,7 @@ module.exports = {
   },
   output: {
     filename: '[name].js',
-    path: path.join(__dirname, "dist"),
+    path: path.join(__dirname, "ckPayment-web3/dist/"),
     library: '[name]',
     libraryTarget: 'umd'
   },

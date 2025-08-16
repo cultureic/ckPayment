@@ -5,6 +5,7 @@
       "package": "payment_backend",
       "candid": "src/payment_backend/payment_backend.did"
     },
+
     "internet_identity": {
       "type": "custom",
       "candid": "src/payment_backend/internet_identity/internet_identity.did",
@@ -12,17 +13,6 @@
       "remote": {
         "id": {
           "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
-        }
-      }
-    },
-    "ckbtc_ledger": {
-      "type": "custom",
-      "wasm": "src/payment_backend/icrc/icrc1.wasm",
-      "candid": "src/payment_backend/icrc/icrc1.public.did",
-      "remote" : {
-        "candid": "src/payment_backend/icrc/icrc1.public.did",
-        "id": {
-          "ic" : "mxzaz-hqaaa-aaaar-qaada-cai"
         }
       }
     },
