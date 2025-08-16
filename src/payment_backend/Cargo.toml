@@ -1,0 +1,30 @@
+[package]
+name = "payment_backend"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+ic-cdk = { workspace = true }
+ic-stable-structures = { workspace = true }
+candid = { workspace = true }
+serde = { workspace = true }
+ic-cdk-timers = { workspace = true }
+
+# For interacting with management canister (BOB pattern dependencies)
+ic-management-canister-types = { workspace = true }
+ic-base-types = { workspace = true }
+
+# For ICRC-1 token interactions
+icrc-ledger-types = { workspace = true }
+icrc-ledger-client-cdk = { workspace = true }
+
+# For HTTP requests (webhooks) - disabled for now
+# ic-web3-rs = { version = "0.1", optional = true }
+
+[features]
+default = []
+# webhooks = ["ic-web3-rs"]

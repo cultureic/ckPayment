@@ -1,0 +1,91 @@
+type InvoiceStatus = variant {
+    Created;
+    Paid;
+    Expired;
+    Cancelled;
+};
+
+type TransactionStatus = variant {
+    Pending;
+    Completed;
+    Failed : text;
+    Refunded;
+};
+
+type TokenConfig = record {
+    symbol : text;
+    name : text;
+    decimals : nat8;
+    canister_id : principal;
+    fee : nat64;
+    logo : opt text;
+    is_active : bool;
+};
+
+type UserCanisterConfig = record {
+    name : text;
+    description : text;
+    supported_tokens : vec TokenConfig;
+    webhook : opt text;
+    merchant_fee : nat32;
+    auto_withdraw : bool;
+    withdraw_threshold : opt nat64;
+    custom_settings : vec record { text; text };
+};
+
+type PaymentInvoice = record {
+    id : text;
+    merchant : principal;
+    amount : nat64;
+    token : TokenConfig;
+    description : text;
+    metadata : vec record { text; text };
+    expires_at : opt nat64;
+    created_at : nat64;
+    status : InvoiceStatus;
+};
+
+type PaymentTransaction = record {
+    id : text;
+    from : principal;
+    to : principal;
+    token : TokenConfig;
+    amount : nat64;
+    fee : nat64;
+    merchant_fee : nat64;
+    timestamp : nat64;
+    status : TransactionStatus;
+    metadata : vec record { text; text };
+};
+
+type PaymentAnalytics = record {
+    total_transactions : nat64;
+    total_volume : vec record { text; nat64 };
+    success_rate : float64;
+    average_amount : vec record { text; nat64 };
+    top_tokens : vec text;
+};
+
+type Result = variant { Ok : PaymentInvoice; Err : text };
+type Result_1 = variant { Ok : PaymentTransaction; Err : text };
+type Result_2 = variant { Ok; Err : text };
+type Result_3 = variant { Ok : nat64; Err : text };
+
+service : (UserCanisterConfig, principal) -> {
+    canister_id : () -> (principal) query;
+    create_invoice : (nat64, text, text, vec record { text; text }) -> (Result);
+    get_all_balances : () -> (vec record { text; nat64 }) query;
+    get_analytics : (opt text, opt text) -> (PaymentAnalytics) query;
+    get_balance : (text) -> (nat64) query;
+    get_configuration : () -> (UserCanisterConfig) query;
+    get_invoice : (text) -> (opt PaymentInvoice) query;
+    get_owner : () -> (principal) query;
+    get_supported_tokens : () -> (vec TokenConfig) query;
+    get_transaction : (text) -> (opt PaymentTransaction) query;
+    get_transaction_history : (nat64, nat64) -> (vec PaymentTransaction) query;
+    health : () -> (text, nat64, nat64) query;
+    process_payment : (text, principal) -> (Result_1);
+    update_configuration : (UserCanisterConfig) -> (Result_2);
+    whoami : () -> (principal) query;
+    withdraw : (text, nat64, principal) -> (Result_3);
+}

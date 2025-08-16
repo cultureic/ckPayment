@@ -1,0 +1,61 @@
+type TokenConfig = record {
+  symbol : text;
+  name : text;
+  decimals : nat8;
+  canister_id : principal;
+  fee : nat64;
+  logo : opt text;
+  is_active : bool;
+};
+
+type UserCanisterConfig = record {
+  name : text;
+  description : text;
+  supported_tokens : vec TokenConfig;
+  webhook : opt text;
+  merchant_fee : nat32;
+  auto_withdraw : bool;
+  withdraw_threshold : opt nat64;
+  custom_settings : vec record { text; text };
+};
+
+type CanisterRecord = record {
+  id : principal;
+  owner : principal;
+  name : text;
+  description : text;
+  version : nat64;
+  created_at : nat64;
+  last_updated : nat64;
+  is_active : bool;
+  supported_tokens : vec TokenConfig;
+};
+
+type FactoryStats = record {
+  total_canisters : nat64;
+  active_canisters : nat64;
+  total_users : nat64;
+  current_version : nat64;
+};
+
+type Result = variant { Ok : text; Err : text };
+type Result_1 = variant { Ok; Err : text };
+
+service : {
+  // Factory Methods (BOB Pattern)
+  deploy_user_payment_canister : (UserCanisterConfig) -> (Result);
+  get_canister_info : (principal) -> (opt CanisterRecord) query;
+  get_user_canisters : (principal) -> (vec CanisterRecord) query;
+  get_all_active_canisters : () -> (vec CanisterRecord) query;
+  find_canisters_by_token : (text) -> (vec CanisterRecord) query;
+  get_factory_stats : () -> (FactoryStats) query;
+  
+  // Admin Methods  
+  set_user_canister_wasm : (blob) -> (Result_1);
+  
+  // Utility Methods
+  greet : (text) -> (text) query;
+  whoami : () -> (principal) query;
+  canister_id : () -> (principal) query;
+  get_wasm_status : () -> (text) query;
+}
