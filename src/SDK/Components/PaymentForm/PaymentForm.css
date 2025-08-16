@@ -1,0 +1,170 @@
+.ckpay-payment-form {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ckpay-payment-form.error {
+  background-color: #fee;
+  border-color: #f99;
+  color: #900;
+  text-align: center;
+}
+
+.ckpay-form-header {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.ckpay-form-header h3 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.ckpay-canister-info {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
+  background-color: #f8f9fa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.ckpay-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ckpay-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ckpay-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.ckpay-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.ckpay-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.ckpay-payment-summary {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin-top: 1rem;
+}
+
+.ckpay-payment-summary h4 {
+  margin: 0 0 0.75rem 0;
+  color: #333;
+  font-size: 1rem;
+}
+
+.ckpay-summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 14px;
+}
+
+.ckpay-summary-line:last-child {
+  margin-bottom: 0;
+}
+
+.ckpay-address {
+  font-family: monospace;
+  font-size: 12px;
+  background-color: #e9ecef;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckpay-error-message {
+  padding: 0.75rem;
+  background-color: #fee;
+  border: 1px solid #f99;
+  border-radius: 4px;
+  color: #900;
+  font-size: 14px;
+}
+
+.ckpay-success-message {
+  padding: 0.75rem;
+  background-color: #efe;
+  border: 1px solid #9f9;
+  border-radius: 4px;
+  color: #060;
+}
+
+.ckpay-success-message h4 {
+  margin: 0 0 0.5rem 0;
+  color: #060;
+}
+
+.ckpay-payment-address {
+  font-family: monospace;
+  background-color: #f0f0f0;
+  padding: 0.5rem;
+  border-radius: 4px;
+  word-break: break-all;
+  margin-top: 0.5rem;
+}
+
+.ckpay-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 1rem;
+}
+
+.ckpay-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.ckpay-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.ckpay-button.success {
+  background-color: #28a745;
+}
+
+.ckpay-button.success:hover:not(:disabled) {
+  background-color: #218838;
+}

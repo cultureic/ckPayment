@@ -2,16 +2,18 @@ import React, { Component, createContext, useContext, useEffect, useState } from
 import { createRoot } from 'react-dom/client';
 import { AuthProvider, useAuth } from "./auth";
 import { WalletProvider, useTokens } from "./Hooks/walletProvider";
+import { UserPaymentCanisterProvider, useUserPaymentCanisterContext } from "./Hooks/userPaymentCanisterProvider";
 import { addItem, addProfile, getItem, buyItem } from "./interfaceHook";
 import { motion } from "framer-motion";
 import { Copy, Check, Bitcoin, CircleDollarSign, Loader2, X, ChevronLeft, ChevronRight, CheckCircle2, Zap, ArrowRight, Wallet } from "lucide-react";
+import TokenIcon from "./Components/TokenIcon";
 import "./index.css";
 
 // Payment Context to share state
 const PaymentContext = createContext();
 
 const PaymentProvider = ({ children }) => {
-  const [selectedMethod, setSelectedMethod] = useState('icp');
+  const [selectedMethod, setSelectedMethod] = useState('');
   const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState(null);
   const [error, setError] = useState(null);
@@ -28,11 +30,18 @@ const usePayment = () => useContext(PaymentContext);
 // Combined Auth and Payment Method Step
 const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, login, logout, props }) => {
   const { selectedMethod, setSelectedMethod, amount, setAmount, error, setError, setTransactionId } = usePayment();
-  const { balances } = useTokens();
+  const { balances, supportedTokens } = useTokens();
   const { backendActor: actor, principal } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isValidAmount, setIsValidAmount] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+
+  // Set default payment method to first supported token when tokens are loaded
+  useEffect(() => {
+    if (supportedTokens && supportedTokens.length > 0 && !selectedMethod) {
+      setSelectedMethod(supportedTokens[0].symbol?.toLowerCase() || supportedTokens[0].name?.toLowerCase());
+    }
+  }, [supportedTokens, selectedMethod, setSelectedMethod]);
 
   // Debug auth state
   useEffect(() => {
@@ -66,10 +75,44 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
     setIsValidAmount(!isNaN(num) && num > 0);
   }, [amount]);
 
-  const tokens = [
-    { id: 'icp', name: 'ICP', icon: CircleDollarSign, balance: balances?.ICP || 0 },
-    { id: 'btc', name: 'Bitcoin', icon: Bitcoin, balance: balances?.BTC || 0 },
-  ];
+  // Create tokens array from backend supported tokens with balances
+  const tokens = React.useMemo(() => {
+    if (!supportedTokens || supportedTokens.length === 0) {
+      // Fallback to default tokens if backend tokens not loaded yet
+      return [
+        { 
+          id: 'icp', 
+          name: 'ICP', 
+          symbol: 'ICP', 
+          balance: balances?.ICP || 0,
+          canister_id: 'ryjl3-tyaaa-aaaaa-aaaba-cai' // ICP ledger canister
+        },
+        { 
+          id: 'btc', 
+          name: 'Bitcoin', 
+          symbol: 'BTC', 
+          balance: balances?.BTC || 0,
+          canister_id: 'mxzaz-hqaaa-aaaar-qaada-cai' // ckBTC canister
+        },
+      ];
+    }
+
+    return supportedTokens.map((token) => {
+      // Get the token's balance using symbol or name as key
+      const balanceKey = token.symbol || token.name;
+      const balance = balances?.[balanceKey] || balances?.[balanceKey.toUpperCase()] || 0;
+      
+      return {
+        id: (token.symbol || token.name || '').toLowerCase(),
+        name: token.name || token.symbol || 'Unknown',
+        symbol: token.symbol || token.name || 'UNK',
+        balance: balance,
+        canister_id: token.canister_id || token.canister,
+        decimals: token.decimals || 8,
+        fee: token.fee || 0
+      };
+    });
+  }, [supportedTokens, balances]);
 
   const handleConfirm = async () => {
     if (!isAuthenticated || !actor) {
@@ -203,12 +246,14 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                        selectedMethod === token.id ? 'bg-primary/10' : 'bg-muted'
-                      }`}>
-                        <token.icon className={`w-5 h-5 ${
-                          selectedMethod === token.id ? 'text-primary' : 'text-muted-foreground'
-                        }`} />
+                      <div className="mr-3">
+                        <TokenIcon 
+                          tokenCanisterId={token.canister_id}
+                          size="w-10 h-10"
+                          className={`${
+                            selectedMethod === token.id ? 'ring-2 ring-primary ring-offset-2' : ''
+                          }`}
+                        />
                       </div>
                       <div>
                         <h4 className="font-medium text-foreground">{token.name}</h4>
@@ -449,6 +494,13 @@ let root = null;
 let options = {};
 
 const MyLibrary = {
+  setCanisterId: (canisterId) => {
+    console.log('Setting canister ID:', canisterId);
+    window.CKPAY_CANISTER_ID = canisterId;
+    window.CKPAY_USER_PAYMENT_CANISTER = canisterId;
+    return MyLibrary;
+  },
+  
   initialize: (containerId, opts) => {
     modalContainer = document.getElementById(containerId);
     if (!modalContainer) throw new Error("Could not find container element");
@@ -471,13 +523,15 @@ const MyLibrary = {
     root.render(
       <ErrorBoundary>
         <AuthProvider>
-          <WalletProvider>
-            <PaymentComponent 
-              {...props} 
-              onPayment={onPayment} 
-              removePaymentModal={MyLibrary.removePaymentModal}
-            />
-          </WalletProvider>
+          <UserPaymentCanisterProvider>
+            <WalletProvider>
+              <PaymentComponent 
+                {...props} 
+                onPayment={onPayment} 
+                removePaymentModal={MyLibrary.removePaymentModal}
+              />
+            </WalletProvider>
+          </UserPaymentCanisterProvider>
         </AuthProvider>
       </ErrorBoundary>
     );
@@ -486,12 +540,7 @@ const MyLibrary = {
   removePaymentModal: () => {
     if (!modalContainer || !root) throw new Error("You must initialize MyLibrary first");
     root.render(null);
-  },
-  
-  addItem,
-  addProfile,
-  buyItem,
-  getItem
+  }
 };
 
 // Expose MyLibrary as ckPaySDK.PaymentComponent
