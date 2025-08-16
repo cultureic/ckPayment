@@ -1,11 +1,9 @@
 {
   "canisters": {
     "payment_backend": {
-      "main": "src/payment_backend/main.mo",
-      "type": "motoko",
-      "dependencies": [
-        "ckbtc_ledger"
-      ]
+      "type": "rust",
+      "package": "payment_backend",
+      "candid": "src/payment_backend/payment_backend.did"
     },
     "internet_identity": {
       "type": "custom",
@@ -34,10 +32,10 @@
         "internet_identity"
         ],
       "frontend": {
-        "entrypoint": "dist/index.html"
+        "entrypoint": "ckPayment-web3/dist/index.html"
       },
       "source": [
-        "dist"
+        "ckPayment-web3/dist"
       ],
       "type": "assets"
     }

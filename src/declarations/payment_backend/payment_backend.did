@@ -1,104 +1,61 @@
-type TransferError = 
- variant {
-   BadBurn: record {min_burn_amount: nat;};
-   BadFee: record {expected_fee: nat;};
-   CreatedInFuture: record {ledger_time: nat64;};
-   Duplicate: record {duplicate_of: nat;};
-   GenericError: record {
-                   error_code: nat;
-                   message: text;
-                 };
-   InsufficientFunds: record {balance: nat;};
-   TemporarilyUnavailable;
-   TooOld;
- };
-type Subaccount = blob;
-type Result_6 = 
- variant {
-   err: text;
-   ok: nat;
- };
-type Result_5 = 
- variant {
-   err: text;
-   ok: Invoice;
- };
-type Result_4 = 
- variant {
-   err: text;
-   ok: text;
- };
-type Result_3 = 
- variant {
-   err: text;
-   ok;
- };
-type Result_2 = 
- variant {
-   err: text;
-   ok: Item;
- };
-type Result_1 = 
- variant {
-   err: text;
-   ok: Profile;
- };
-type Result = 
- variant {
-   err: TransferError;
-   ok: nat;
- };
-type Profile = 
- record {
-   description: text;
-   name: text;
-   profilePicture: opt blob;
- };
-type NewItemRequest = 
- record {
-   available: bool;
-   category: text;
-   cost: nat;
-   merchant: principal;
-   name: text;
- };
-type Item = 
- record {
-   available: bool;
-   category: text;
-   cost: nat;
-   id: nat;
-   merchant: principal;
-   name: text;
-   wallet: opt Subaccount;
- };
-type Invoice = 
- record {
-   amount: nat;
-   itemId: nat;
-   merchant: principal;
-   to: Account;
- };
-type Account = 
- record {
-   owner: principal;
-   subaccount: opt Subaccount;
- };
+type TokenConfig = record {
+  symbol : text;
+  name : text;
+  decimals : nat8;
+  canister_id : principal;
+  fee : nat64;
+  logo : opt text;
+  is_active : bool;
+};
+
+type UserCanisterConfig = record {
+  name : text;
+  description : text;
+  supported_tokens : vec TokenConfig;
+  webhook : opt text;
+  merchant_fee : nat32;
+  auto_withdraw : bool;
+  withdraw_threshold : opt nat64;
+  custom_settings : vec record { text; text };
+};
+
+type CanisterRecord = record {
+  id : principal;
+  owner : principal;
+  name : text;
+  description : text;
+  version : nat64;
+  created_at : nat64;
+  last_updated : nat64;
+  is_active : bool;
+  supported_tokens : vec TokenConfig;
+};
+
+type FactoryStats = record {
+  total_canisters : nat64;
+  active_canisters : nat64;
+  total_users : nat64;
+  current_version : nat64;
+};
+
+type Result = variant { Ok : text; Err : text };
+type Result_1 = variant { Ok; Err : text };
+
 service : {
-  addNewItem: (NewItemRequest) -> (Result_6);
-  addNewProfile: (Profile) -> (Result_1);
-  bitFabricCanister: () -> (text) query;
-  buyItem: (nat) -> (Result_4);
-  canCreateStore: () -> (bool) query;
-  getBalance: () -> (nat);
-  getInvoice: (nat) -> (Result_5);
-  getItem: (nat) -> (Result_2);
-  getProfile: (principal) -> (Result_1);
-  mintBTC: () -> (Result_4);
-  payInvoice: (Invoice) -> (Result_3);
-  updateItem: (nat, Item) -> (Result_2);
-  updateProfile: (Profile) -> (Result_1);
-  whoami: () -> (text);
-  whoamisub: () -> (Subaccount) query;
-  withdraw: () -> (Result);
+  // Factory Methods (BOB Pattern)
+  deploy_user_payment_canister : (UserCanisterConfig) -> (Result);
+  get_canister_info : (principal) -> (opt CanisterRecord) query;
+  get_user_canisters : (principal) -> (vec CanisterRecord) query;
+  get_all_active_canisters : () -> (vec CanisterRecord) query;
+  find_canisters_by_token : (text) -> (vec CanisterRecord) query;
+  get_factory_stats : () -> (FactoryStats) query;
+  
+  // Admin Methods  
+  set_user_canister_wasm : (blob) -> (Result_1);
+  
+  // Utility Methods
+  greet : (text) -> (text) query;
+  whoami : () -> (principal) query;
+  canister_id : () -> (principal) query;
+  get_wasm_status : () -> (text) query;
 }

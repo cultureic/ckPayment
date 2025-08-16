@@ -9,11 +9,10 @@ export { idlFactory } from "./ckbtc_ledger.did.js";
  * process.env.CANISTER_ID_<CANISTER_NAME_UPPERCASE>
  * beginning in dfx 0.15.0
  */
-export const canisterIcrc1 =
-  process.env.CANISTER_ID_CKBTC_LEDGER ||
-  process.env.CKBTC_LEDGER_CANISTER_ID;
+export const canisterId =
+  process.env.CANISTER_ID_CKBTC_LEDGER;
 
-export const createActorIcrc1 = (canisterId, options = {}) => {
+export const createActor = (canisterId, options = {}) => {
   const agent = options.agent || new HttpAgent({ ...options.agentOptions });
 
   if (options.agent && options.agentOptions) {
@@ -40,4 +39,4 @@ export const createActorIcrc1 = (canisterId, options = {}) => {
   });
 };
 
-export const ckbtc_ledger = createActorIcrc1(canisterIcrc1);
+export const ckbtc_ledger = canisterId ? createActor(canisterId) : undefined;
