@@ -27,6 +27,7 @@ import {
 import { useICPData } from '@/hooks/useICPData';
 import MetricsGrid from '@/components/dashboard/MetricsGrid';
 import AnimatedBackground from '@/components/AnimatedBackground';
+import { FactoryTab } from '@/components/factory/FactoryTab';
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   defaultTab = 'analytics',
@@ -368,82 +369,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </TabsContent>
 
               <TabsContent value="factory">
-                <Card className="p-6">
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Payment Factory</h3>
-                      <Badge variant="outline">Management Interface</Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Factory Overview */}
-                      <div className="space-y-4">
-                        <h4 className="font-medium">Factory Status</h4>
-                        <div className="p-4 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Factory Contract</span>
-                            <Badge variant="default">Active</Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Deployed payment contract factory for creating new payment instances
-                          </div>
-                        </div>
-                        
-                        <div className="p-4 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Deployed Contracts</span>
-                            <span className="text-sm font-bold">12</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Total payment contracts created via factory
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Factory Actions */}
-                      <div className="space-y-4">
-                        <h4 className="font-medium">Quick Actions</h4>
-                        <div className="space-y-3">
-                          <Button className="w-full justify-start" variant="outline">
-                            <Factory className="h-4 w-4 mr-2" />
-                            Deploy New Payment Contract
-                          </Button>
-                          <Button className="w-full justify-start" variant="outline">
-                            <Settings className="h-4 w-4 mr-2" />
-                            Configure Factory Settings
-                          </Button>
-                          <Button className="w-full justify-start" variant="outline">
-                            <BarChart3 className="h-4 w-4 mr-2" />
-                            View Factory Analytics
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Recent Deployments */}
-                    <div className="space-y-4">
-                      <h4 className="font-medium">Recent Deployments</h4>
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="flex items-center justify-between p-3 border rounded">
-                            <div>
-                              <div className="font-medium text-sm">Payment Contract #{i + 9}</div>
-                              <div className="text-xs text-muted-foreground">Deployed 2 hours ago</div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Badge variant="default">Live</Badge>
-                              <Button size="sm" variant="ghost">Manage</Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="text-sm text-muted-foreground">
-                      Full factory management interface with contract deployment, configuration, and monitoring capabilities will be implemented in the next development phase.
-                    </div>
-                  </div>
-                </Card>
+                <FactoryTab />
               </TabsContent>
             </div>
           </Tabs>
