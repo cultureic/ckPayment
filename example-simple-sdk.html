@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ckPayment Simple SDK Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+    }
+    .button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0.5rem;
+      font-size: 16px;
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+    .canister-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-family: monospace;
+    }
+    #payment-modal, #token-selector-demo, #payment-form-demo {
+      min-height: 50px;
+      border: 2px dashed #ddd;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ckPayment Simple SDK Example</h1>
+    <p>This example shows how to use the new simple SDK that connects directly to user payment canisters deployed via the factory.</p>
+    
+    <div>
+      <h3>Step 1: Set Your Payment Canister ID</h3>
+      <p>Enter your deployed payment canister ID:</p>
+      <input 
+        type="text" 
+        id="canister-input" 
+        class="canister-input"
+        placeholder="e.g., rdmx6-jaaaa-aaaaa-aaadq-cai"
+        value="6tzcr-tqaaa-aaaag-aufoa-cai"
+      >
+      <button class="button" onclick="setCanisterId()">Connect to Canister</button>
+    </div>
+
+    <div>
+      <h3>Step 2: Initialize SDK</h3>
+      <button class="button" onclick="initializeSDK()">Initialize Payment Modal</button>
+      <div id="payment-modal"></div>
+    </div>
+
+    <div>
+      <h3>Step 3: Test Payment Modal</h3>
+      <button class="button" onclick="showPaymentModal()">Show Payment Modal</button>
+      <button class="button" onclick="showCustomPayment()">Custom Payment (0.001 ckBTC)</button>
+      <button class="button" onclick="hidePaymentModal()">Hide Modal</button>
+    </div>
+
+    <div>
+      <h3>Standalone Components</h3>
+      <button class="button" onclick="showTokenSelector()">Show Token Selector</button>
+      <div id="token-selector-demo"></div>
+      
+      <button class="button" onclick="showPaymentForm()">Show Payment Form</button>
+      <div id="payment-form-demo"></div>
+    </div>
+
+    <div>
+      <h3>Status</h3>
+      <div id="status">Ready to connect...</div>
+    </div>
+  </div>
+
+  <!-- Load React and ReactDOM from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <!-- Load the SDK as a module (you'll need to bundle this or serve it properly) -->
+  <script type="module">
+    // For this example, we'll simulate the SDK being loaded
+    // In reality, you'd load the bundled SDK file
+    
+    // Simulate SDK global object
+    window.ckPaySDK = {
+      PaymentComponent: {
+        canisterId: null,
+        root: null,
+        
+        setCanisterId(canisterId) {
+          this.canisterId = canisterId;
+          document.getElementById('status').textContent = `Connected to canister: ${canisterId}`;
+          return this;
+        },
+
+        initialize(containerId) {
+          document.getElementById('status').textContent = `SDK initialized in container: ${containerId}`;
+          return this;
+        },
+
+        renderPaymentModal(options = {}, onComplete = null) {
+          document.getElementById('status').textContent = 
+            `Payment modal shown with amount: ${options.amount || 'flexible'}, description: ${options.description || 'Payment'}`;
+          
+          // Simulate completion after 3 seconds
+          if (onComplete) {
+            setTimeout(() => {
+              onComplete({
+                invoice: { id: 'inv_' + Date.now() },
+                amount: options.amount || 100,
+                description: options.description || 'Payment'
+              });
+              document.getElementById('status').textContent = 'Payment completed!';
+            }, 3000);
+          }
+        },
+
+        removePaymentModal() {
+          document.getElementById('status').textContent = 'Payment modal hidden';
+        },
+
+        renderTokenSelector(containerId, options = {}) {
+          const container = document.getElementById(containerId);
+          container.innerHTML = `
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px;">
+              <h4>Token Selector</h4>
+              <select style="width: 100%; padding: 0.5rem;">
+                <option>Loading tokens from ${this.canisterId}...</option>
+                <option value="ckBTC">ckBTC - Wrapped Bitcoin</option>
+                <option value="ckETH">ckETH - Wrapped Ethereum</option>
+                <option value="ICP">ICP - Internet Computer</option>
+              </select>
+            </div>
+          `;
+        },
+
+        renderPaymentForm(containerId, options = {}) {
+          const container = document.getElementById(containerId);
+          container.innerHTML = `
+            <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px;">
+              <h4>Payment Form</h4>
+              <p>Amount: ${options.amount || 'Flexible'}</p>
+              <p>Description: ${options.description || 'Payment'}</p>
+              <p>Connected to: ${this.canisterId}</p>
+              <button style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px;">
+                Create Payment
+              </button>
+            </div>
+          `;
+        }
+      }
+    };
+
+    // Make functions available globally
+    window.setCanisterId = function() {
+      const canisterId = document.getElementById('canister-input').value.trim();
+      if (canisterId) {
+        ckPaySDK.PaymentComponent.setCanisterId(canisterId);
+      } else {
+        alert('Please enter a canister ID');
+      }
+    };
+
+    window.initializeSDK = function() {
+      if (!ckPaySDK.PaymentComponent.canisterId) {
+        alert('Please set a canister ID first');
+        return;
+      }
+      ckPaySDK.PaymentComponent.initialize('payment-modal');
+    };
+
+    window.showPaymentModal = function() {
+      ckPaySDK.PaymentComponent.renderPaymentModal({
+        amount: 0,
+        description: 'Test Payment'
+      }, function(result) {
+        console.log('Payment complete:', result);
+        alert('Payment completed successfully!');
+      });
+    };
+
+    window.showCustomPayment = function() {
+      ckPaySDK.PaymentComponent.renderPaymentModal({
+        amount: 100000, // 0.001 ckBTC (8 decimals)
+        description: 'Custom ckBTC Payment'
+      }, function(result) {
+        console.log('Custom payment complete:', result);
+        alert('ckBTC Payment completed!');
+      });
+    };
+
+    window.hidePaymentModal = function() {
+      ckPaySDK.PaymentComponent.removePaymentModal();
+    };
+
+    window.showTokenSelector = function() {
+      if (!ckPaySDK.PaymentComponent.canisterId) {
+        alert('Please set a canister ID first');
+        return;
+      }
+      ckPaySDK.PaymentComponent.renderTokenSelector('token-selector-demo', {
+        onTokenSelect: (token) => {
+          alert(`Selected token: ${token.name}`);
+        }
+      });
+    };
+
+    window.showPaymentForm = function() {
+      if (!ckPaySDK.PaymentComponent.canisterId) {
+        alert('Please set a canister ID first');
+        return;
+      }
+      ckPaySDK.PaymentComponent.renderPaymentForm('payment-form-demo', {
+        amount: 50000, // 0.0005 ckBTC
+        description: 'Demo Payment Form',
+        onPayment: (data) => {
+          alert('Payment form submitted!');
+        }
+      });
+    };
+  </script>
+</body>
+</html>
