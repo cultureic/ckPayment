@@ -142,6 +142,91 @@ pub struct PaymentAnalytics {
 }
 
 // ============================================================================
+// MODAL BUILDER FEATURE STRUCTURES
+// ============================================================================
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct ModalConfig {
+    pub modal_id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub theme: ModalTheme,
+    pub payment_options: PaymentOptions,
+    pub branding: BrandingConfig,
+    pub redirect_urls: RedirectUrls,
+    pub template_id: Option<String>, // Reference to factory template
+    pub created_at: u64,
+    pub updated_at: u64,
+    pub is_active: bool,
+}
+
+impl Storable for ModalConfig {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct ModalTheme {
+    pub primary_color: String,
+    pub background_color: String,
+    pub text_color: String,
+    pub border_radius: u32,
+    pub font_family: String,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct PaymentOptions {
+    pub allowed_tokens: Vec<String>,
+    pub require_email: bool,
+    pub require_shipping: bool,
+    pub show_amount_breakdown: bool,
+    pub enable_tips: bool,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct BrandingConfig {
+    pub logo_url: Option<String>,
+    pub company_name: String,
+    pub support_url: Option<String>,
+    pub terms_url: Option<String>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct RedirectUrls {
+    pub success_url: String,
+    pub cancel_url: String,
+    pub webhook_url: Option<String>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct ModalAnalytics {
+    pub modal_id: String,
+    pub total_views: u64,
+    pub successful_payments: u64,
+    pub conversion_rate: f64,
+    pub revenue_generated: u64,
+}
+
+impl Storable for ModalAnalytics {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+// ============================================================================
 // STABLE STORAGE
 // ============================================================================
 
@@ -189,6 +274,19 @@ thread_local! {
 
     static NEXT_TRANSACTION_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
         Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))), 1u64).unwrap()
+    );
+
+    // Modal Builder storage (MemoryId 7)
+    static MODAL_CONFIGS: RefCell<StableBTreeMap<String, ModalConfig, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(7))))
+    );
+
+    static MODAL_ANALYTICS: RefCell<StableBTreeMap<String, ModalAnalytics, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(8))))
+    );
+
+    static NEXT_MODAL_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
+        Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(9))), 1u64).unwrap()
     );
 }
 
@@ -637,6 +735,230 @@ fn admin_update_owner(new_owner: Principal) -> Result<(), String> {
 #[ic_cdk::query]
 fn canister_id() -> Principal {
     ic_cdk::id()
+}
+
+// ============================================================================
+// MODAL BUILDER METHODS
+// ============================================================================
+
+#[ic_cdk::update]
+fn create_modal_config(config: ModalConfig) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can create modal configurations".to_string());
+    }
+
+    // Validate modal configuration
+    if config.name.is_empty() {
+        return Err("Modal name cannot be empty".to_string());
+    }
+    if config.branding.company_name.is_empty() {
+        return Err("Company name cannot be empty".to_string());
+    }
+    if config.redirect_urls.success_url.is_empty() {
+        return Err("Success URL cannot be empty".to_string());
+    }
+    if config.redirect_urls.cancel_url.is_empty() {
+        return Err("Cancel URL cannot be empty".to_string());
+    }
+
+    // Generate modal ID
+    let modal_id = NEXT_MODAL_ID.with(|id| {
+        let current = *id.borrow().get();
+        id.borrow_mut().set(current + 1).unwrap();
+        format!("modal_{}", current)
+    });
+
+    let mut new_config = config;
+    new_config.modal_id = modal_id.clone();
+    new_config.created_at = ic_cdk::api::time();
+    new_config.updated_at = ic_cdk::api::time();
+
+    MODAL_CONFIGS.with(|configs| {
+        configs.borrow_mut().insert(modal_id.clone(), new_config)
+    });
+
+    // Initialize analytics for this modal
+    let analytics = ModalAnalytics {
+        modal_id: modal_id.clone(),
+        total_views: 0,
+        successful_payments: 0,
+        conversion_rate: 0.0,
+        revenue_generated: 0,
+    };
+    
+    MODAL_ANALYTICS.with(|analytics_map| {
+        analytics_map.borrow_mut().insert(modal_id.clone(), analytics)
+    });
+
+    Ok(modal_id)
+}
+
+#[ic_cdk::update]
+fn update_modal_config(modal_id: String, mut config: ModalConfig) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can update modal configurations".to_string());
+    }
+
+    // Validate modal configuration
+    if config.name.is_empty() {
+        return Err("Modal name cannot be empty".to_string());
+    }
+    if config.branding.company_name.is_empty() {
+        return Err("Company name cannot be empty".to_string());
+    }
+    if config.redirect_urls.success_url.is_empty() {
+        return Err("Success URL cannot be empty".to_string());
+    }
+    if config.redirect_urls.cancel_url.is_empty() {
+        return Err("Cancel URL cannot be empty".to_string());
+    }
+
+    MODAL_CONFIGS.with(|configs| {
+        let mut map = configs.borrow_mut();
+        let existing_config = map.get(&modal_id)
+            .ok_or("Modal configuration not found")?;
+        
+        // Preserve original creation data and ID
+        config.modal_id = modal_id.clone();
+        config.created_at = existing_config.created_at;
+        config.updated_at = ic_cdk::api::time();
+        
+        map.insert(modal_id, config);
+        Ok(())
+    })
+}
+
+#[ic_cdk::query]
+fn get_modal_config(modal_id: String) -> Result<ModalConfig, String> {
+    MODAL_CONFIGS.with(|configs| {
+        configs.borrow().get(&modal_id)
+            .ok_or("Modal configuration not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_my_modals() -> Vec<ModalConfig> {
+    MODAL_CONFIGS.with(|configs| {
+        configs.borrow().iter().map(|(_, config)| config).collect()
+    })
+}
+
+#[ic_cdk::update]
+fn delete_modal_config(modal_id: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can delete modal configurations".to_string());
+    }
+
+    MODAL_CONFIGS.with(|configs| {
+        let mut map = configs.borrow_mut();
+        if map.remove(&modal_id).is_none() {
+            return Err("Modal configuration not found".to_string());
+        }
+        Ok(())
+    })?;
+
+    // Also remove analytics data
+    MODAL_ANALYTICS.with(|analytics| {
+        analytics.borrow_mut().remove(&modal_id)
+    });
+
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn track_modal_view(modal_id: String) -> Result<(), String> {
+    MODAL_ANALYTICS.with(|analytics| {
+        let mut map = analytics.borrow_mut();
+        if let Some(mut modal_analytics) = map.get(&modal_id) {
+            modal_analytics.total_views += 1;
+            
+            // Recalculate conversion rate
+            if modal_analytics.total_views > 0 {
+                modal_analytics.conversion_rate = 
+                    modal_analytics.successful_payments as f64 / modal_analytics.total_views as f64;
+            }
+            
+            map.insert(modal_id, modal_analytics);
+            Ok(())
+        } else {
+            Err("Modal analytics not found".to_string())
+        }
+    })
+}
+
+#[ic_cdk::query]
+fn get_modal_analytics(modal_id: String) -> Result<ModalAnalytics, String> {
+    MODAL_ANALYTICS.with(|analytics| {
+        analytics.borrow().get(&modal_id)
+            .ok_or("Modal analytics not found".to_string())
+    })
+}
+
+#[ic_cdk::update]
+fn generate_modal_embed_code(modal_id: String) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can generate embed codes".to_string());
+    }
+
+    let config = MODAL_CONFIGS.with(|configs| {
+        configs.borrow().get(&modal_id)
+    }).ok_or("Modal configuration not found")?;
+
+    if !config.is_active {
+        return Err("Cannot generate embed code for inactive modal".to_string());
+    }
+
+    let canister_id = ic_cdk::id().to_text();
+    
+    let embed_code = format!(
+        r#"<script src="https://sdk.ckpayment.io/embed.js"></script>
+<script>
+  ckPayment.createModal({{
+    canisterId: "{}",
+    modalId: "{}",
+    theme: {{
+      primaryColor: "{}",
+      backgroundColor: "{}",
+      textColor: "{}",
+      borderRadius: {},
+      fontFamily: "{}"
+    }},
+    branding: {{
+      companyName: "{}",
+      logoUrl: "{}"
+    }},
+    redirectUrls: {{
+      successUrl: "{}",
+      cancelUrl: "{}"
+    }}
+  }});
+</script>"#,
+        canister_id,
+        modal_id,
+        config.theme.primary_color,
+        config.theme.background_color,
+        config.theme.text_color,
+        config.theme.border_radius,
+        config.theme.font_family,
+        config.branding.company_name,
+        config.branding.logo_url.as_deref().unwrap_or(""),
+        config.redirect_urls.success_url,
+        config.redirect_urls.cancel_url
+    );
+
+    Ok(embed_code)
 }
 
 // Export candid interface

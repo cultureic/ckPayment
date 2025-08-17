@@ -66,11 +66,66 @@ type PaymentAnalytics = record {
     top_tokens : vec text;
 };
 
+// Modal Builder Types
+type ModalTheme = record {
+    primary_color : text;
+    background_color : text;
+    text_color : text;
+    border_radius : nat32;
+    font_family : text;
+};
+
+type PaymentOptions = record {
+    allowed_tokens : vec text;
+    require_email : bool;
+    require_shipping : bool;
+    show_amount_breakdown : bool;
+    enable_tips : bool;
+};
+
+type BrandingConfig = record {
+    logo_url : opt text;
+    company_name : text;
+    support_url : opt text;
+    terms_url : opt text;
+};
+
+type RedirectUrls = record {
+    success_url : text;
+    cancel_url : text;
+    webhook_url : opt text;
+};
+
+type ModalConfig = record {
+    modal_id : text;
+    name : text;
+    description : opt text;
+    theme : ModalTheme;
+    payment_options : PaymentOptions;
+    branding : BrandingConfig;
+    redirect_urls : RedirectUrls;
+    template_id : opt text;
+    created_at : nat64;
+    updated_at : nat64;
+    is_active : bool;
+};
+
+type ModalAnalytics = record {
+    modal_id : text;
+    total_views : nat64;
+    successful_payments : nat64;
+    conversion_rate : float64;
+    revenue_generated : nat64;
+};
+
 type Result = variant { Ok : PaymentInvoice; Err : text };
 type Result_1 = variant { Ok : PaymentTransaction; Err : text };
 type Result_2 = variant { Ok; Err : text };
 type Result_3 = variant { Ok : nat64; Err : text };
 type Result_4 = variant { Ok : bool; Err : text };
+type Result_5 = variant { Ok : text; Err : text };
+type Result_6 = variant { Ok : ModalConfig; Err : text };
+type Result_7 = variant { Ok : ModalAnalytics; Err : text };
 
 service : (UserCanisterConfig, principal) -> {
     canister_id : () -> (principal) query;
@@ -95,4 +150,17 @@ service : (UserCanisterConfig, principal) -> {
     remove_supported_token : (text) -> (Result_2);
     update_supported_token : (text, TokenConfig) -> (Result_2);
     toggle_token_status : (text) -> (Result_4);
+    
+    // Modal Builder Methods
+    create_modal_config : (ModalConfig) -> (Result_5);
+    update_modal_config : (text, ModalConfig) -> (Result_2);
+    get_modal_config : (text) -> (Result_6) query;
+    list_my_modals : () -> (vec ModalConfig) query;
+    delete_modal_config : (text) -> (Result_2);
+    track_modal_view : (text) -> (Result_2);
+    get_modal_analytics : (text) -> (Result_7) query;
+    generate_modal_embed_code : (text) -> (Result_5);
+    
+    // Admin Methods
+    admin_update_owner : (principal) -> (Result_2);
 }
