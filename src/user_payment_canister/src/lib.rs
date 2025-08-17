@@ -288,6 +288,114 @@ impl Storable for CouponUsage {
 }
 
 // ============================================================================
+// SUBSCRIPTION MANAGEMENT SYSTEM STRUCTURES
+// ============================================================================
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum SubscriptionStatus {
+    Active,
+    Paused,
+    Cancelled,
+    Expired,
+    PendingPayment,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum BillingInterval {
+    Daily,
+    Weekly,
+    Monthly,
+    Quarterly,
+    Yearly,
+    Custom(u64), // Custom interval in seconds
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct SubscriptionPlan {
+    pub plan_id: String,
+    pub name: String,
+    pub description: String,
+    pub price: u64, // Price in token's smallest unit
+    pub token: String, // Token symbol (e.g., "ckBTC")
+    pub billing_interval: BillingInterval,
+    pub trial_period_days: Option<u32>, // Free trial period
+    pub max_subscriptions: Option<u32>, // Maximum number of active subscriptions, None = unlimited
+    pub features: Vec<String>, // List of features included in this plan
+    pub is_active: bool,
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+impl Storable for SubscriptionPlan {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct Subscription {
+    pub subscription_id: String,
+    pub plan_id: String,
+    pub subscriber: Principal,
+    pub status: SubscriptionStatus,
+    pub current_period_start: u64,
+    pub current_period_end: u64,
+    pub next_billing_date: u64,
+    pub trial_end: Option<u64>, // When trial period ends, if applicable
+    pub cancelled_at: Option<u64>, // When subscription was cancelled
+    pub cancel_at_period_end: bool, // If true, cancel at end of current period
+    pub total_payments: u64, // Total amount paid over lifetime
+    pub payment_failures: u32, // Number of consecutive payment failures
+    pub metadata: Vec<(String, String)>, // Custom metadata key-value pairs
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+impl Storable for Subscription {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct SubscriptionPayment {
+    pub payment_id: String,
+    pub subscription_id: String,
+    pub amount: u64,
+    pub token: String,
+    pub billing_period_start: u64,
+    pub billing_period_end: u64,
+    pub payment_date: u64,
+    pub status: String, // "paid", "failed", "pending"
+    pub transaction_id: Option<String>, // Link to actual payment transaction
+    pub failure_reason: Option<String>, // If payment failed, why?
+}
+
+impl Storable for SubscriptionPayment {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+// ============================================================================
 // STABLE STORAGE
 // ============================================================================
 
@@ -361,6 +469,23 @@ thread_local! {
 
     static NEXT_COUPON_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
         Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(12))), 1u64).unwrap()
+    );
+
+    // Subscription Management System storage (MemoryId 13, 14, 15, 16)
+    static SUBSCRIPTION_PLANS: RefCell<StableBTreeMap<String, SubscriptionPlan, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(13))))
+    );
+
+    static SUBSCRIPTIONS: RefCell<StableBTreeMap<String, Subscription, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(14))))
+    );
+
+    static SUBSCRIPTION_PAYMENTS: RefCell<StableBTreeMap<String, SubscriptionPayment, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(15))))
+    );
+
+    static NEXT_SUBSCRIPTION_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
+        Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(16))), 1u64).unwrap()
     );
 }
 
@@ -1398,6 +1523,633 @@ fn admin_clear_all_coupons() -> Result<u32, String> {
     });
 
     Ok(count)
+}
+
+// ============================================================================
+// SUBSCRIPTION MANAGEMENT SYSTEM METHODS
+// ============================================================================
+
+// ============================================================================
+// SUBSCRIPTION PLAN MANAGEMENT
+// ============================================================================
+
+#[ic_cdk::update]
+fn create_subscription_plan(mut plan: SubscriptionPlan) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can create subscription plans".to_string());
+    }
+
+    // Validate plan configuration
+    if plan.name.is_empty() {
+        return Err("Plan name cannot be empty".to_string());
+    }
+    if plan.description.is_empty() {
+        return Err("Plan description cannot be empty".to_string());
+    }
+    if plan.price == 0 {
+        return Err("Plan price must be greater than 0".to_string());
+    }
+    if plan.token.is_empty() {
+        return Err("Plan token cannot be empty".to_string());
+    }
+
+    // Validate that the token is supported
+    let config = CONFIG.with(|c| c.borrow().get().clone());
+    let token_exists = config.supported_tokens
+        .iter()
+        .any(|t| t.symbol == plan.token && t.is_active);
+    
+    if !token_exists {
+        return Err("Token not supported or inactive".to_string());
+    }
+
+    // Generate plan ID
+    let plan_id = NEXT_SUBSCRIPTION_ID.with(|id| {
+        let current = *id.borrow().get();
+        id.borrow_mut().set(current + 1).unwrap();
+        format!("plan_{}", current)
+    });
+
+    // Set plan metadata
+    plan.plan_id = plan_id.clone();
+    plan.created_at = ic_cdk::api::time();
+    plan.updated_at = ic_cdk::api::time();
+
+    SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow_mut().insert(plan_id.clone(), plan)
+    });
+
+    Ok(plan_id)
+}
+
+#[ic_cdk::update]
+fn update_subscription_plan(plan_id: String, mut updated_plan: SubscriptionPlan) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can update subscription plans".to_string());
+    }
+
+    // Validate plan configuration
+    if updated_plan.name.is_empty() {
+        return Err("Plan name cannot be empty".to_string());
+    }
+    if updated_plan.description.is_empty() {
+        return Err("Plan description cannot be empty".to_string());
+    }
+    if updated_plan.price == 0 {
+        return Err("Plan price must be greater than 0".to_string());
+    }
+    if updated_plan.token.is_empty() {
+        return Err("Plan token cannot be empty".to_string());
+    }
+
+    // Validate that the token is supported
+    let config = CONFIG.with(|c| c.borrow().get().clone());
+    let token_exists = config.supported_tokens
+        .iter()
+        .any(|t| t.symbol == updated_plan.token && t.is_active);
+    
+    if !token_exists {
+        return Err("Token not supported or inactive".to_string());
+    }
+
+    SUBSCRIPTION_PLANS.with(|plans| {
+        let mut map = plans.borrow_mut();
+        let existing_plan = map.get(&plan_id)
+            .ok_or("Subscription plan not found")?;
+        
+        // Preserve original metadata
+        updated_plan.plan_id = plan_id.clone();
+        updated_plan.created_at = existing_plan.created_at;
+        updated_plan.updated_at = ic_cdk::api::time();
+        
+        map.insert(plan_id, updated_plan);
+        Ok(())
+    })
+}
+
+#[ic_cdk::query]
+fn get_subscription_plan(plan_id: String) -> Result<SubscriptionPlan, String> {
+    SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow().get(&plan_id)
+            .ok_or("Subscription plan not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_subscription_plans() -> Vec<SubscriptionPlan> {
+    SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow().iter().map(|(_, plan)| plan).collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_active_subscription_plans() -> Vec<SubscriptionPlan> {
+    SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow().iter()
+            .filter(|(_, plan)| plan.is_active)
+            .map(|(_, plan)| plan)
+            .collect()
+    })
+}
+
+#[ic_cdk::update]
+fn delete_subscription_plan(plan_id: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can delete subscription plans".to_string());
+    }
+
+    // Check if there are any active subscriptions for this plan
+    let has_active_subscriptions = SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter()
+            .any(|(_, subscription)| {
+                subscription.plan_id == plan_id &&
+                matches!(subscription.status, SubscriptionStatus::Active | SubscriptionStatus::PendingPayment)
+            })
+    });
+
+    if has_active_subscriptions {
+        return Err("Cannot delete plan with active subscriptions. Cancel subscriptions first.".to_string());
+    }
+
+    SUBSCRIPTION_PLANS.with(|plans| {
+        let mut map = plans.borrow_mut();
+        if map.remove(&plan_id).is_none() {
+            return Err("Subscription plan not found".to_string());
+        }
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn toggle_subscription_plan_status(plan_id: String) -> Result<bool, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can toggle plan status".to_string());
+    }
+
+    SUBSCRIPTION_PLANS.with(|plans| {
+        let mut map = plans.borrow_mut();
+        if let Some(mut plan) = map.get(&plan_id) {
+            plan.is_active = !plan.is_active;
+            plan.updated_at = ic_cdk::api::time();
+            let new_status = plan.is_active;
+            map.insert(plan_id, plan);
+            Ok(new_status)
+        } else {
+            Err("Subscription plan not found".to_string())
+        }
+    })
+}
+
+// ============================================================================
+// SUBSCRIPTION MANAGEMENT
+// ============================================================================
+
+fn calculate_next_billing_date(current_time: u64, billing_interval: &BillingInterval) -> u64 {
+    match billing_interval {
+        BillingInterval::Daily => current_time + (24 * 60 * 60 * 1_000_000_000),
+        BillingInterval::Weekly => current_time + (7 * 24 * 60 * 60 * 1_000_000_000),
+        BillingInterval::Monthly => current_time + (30 * 24 * 60 * 60 * 1_000_000_000), // Approximate
+        BillingInterval::Quarterly => current_time + (90 * 24 * 60 * 60 * 1_000_000_000), // Approximate
+        BillingInterval::Yearly => current_time + (365 * 24 * 60 * 60 * 1_000_000_000), // Approximate
+        BillingInterval::Custom(seconds) => current_time + (seconds * 1_000_000_000),
+    }
+}
+
+#[ic_cdk::update]
+fn create_subscription(plan_id: String, metadata: Vec<(String, String)>) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
+    // Get the subscription plan
+    let plan = SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow().get(&plan_id)
+    }).ok_or("Subscription plan not found")?;
+
+    if !plan.is_active {
+        return Err("Subscription plan is not active".to_string());
+    }
+
+    // Check if plan has subscription limits
+    if let Some(max_subscriptions) = plan.max_subscriptions {
+        let current_active_count = SUBSCRIPTIONS.with(|subscriptions| {
+            subscriptions.borrow().iter()
+                .filter(|(_, subscription)| {
+                    subscription.plan_id == plan_id &&
+                    matches!(subscription.status, SubscriptionStatus::Active | SubscriptionStatus::PendingPayment)
+                })
+                .count() as u32
+        });
+
+        if current_active_count >= max_subscriptions {
+            return Err("Subscription plan has reached maximum number of subscriptions".to_string());
+        }
+    }
+
+    // Check if user already has an active subscription to this plan
+    let has_existing_subscription = SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter()
+            .any(|(_, subscription)| {
+                subscription.subscriber == caller &&
+                subscription.plan_id == plan_id &&
+                matches!(subscription.status, SubscriptionStatus::Active | SubscriptionStatus::PendingPayment)
+            })
+    });
+
+    if has_existing_subscription {
+        return Err("User already has an active subscription to this plan".to_string());
+    }
+
+    // Generate subscription ID
+    let subscription_id = NEXT_SUBSCRIPTION_ID.with(|id| {
+        let current = *id.borrow().get();
+        id.borrow_mut().set(current + 1).unwrap();
+        format!("sub_{}", current)
+    });
+
+    // Calculate billing dates
+    let trial_end = plan.trial_period_days.map(|days| {
+        current_time + (days as u64 * 24 * 60 * 60 * 1_000_000_000)
+    });
+
+    let next_billing_date = if trial_end.is_some() {
+        trial_end.unwrap()
+    } else {
+        calculate_next_billing_date(current_time, &plan.billing_interval)
+    };
+
+    let current_period_end = calculate_next_billing_date(current_time, &plan.billing_interval);
+
+    let subscription = Subscription {
+        subscription_id: subscription_id.clone(),
+        plan_id: plan_id.clone(),
+        subscriber: caller,
+        status: if trial_end.is_some() {
+            SubscriptionStatus::Active // Free trial is active
+        } else {
+            SubscriptionStatus::PendingPayment // Needs initial payment
+        },
+        current_period_start: current_time,
+        current_period_end,
+        next_billing_date,
+        trial_end,
+        cancelled_at: None,
+        cancel_at_period_end: false,
+        total_payments: 0,
+        payment_failures: 0,
+        metadata,
+        created_at: current_time,
+        updated_at: current_time,
+    };
+
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow_mut().insert(subscription_id.clone(), subscription)
+    });
+
+    Ok(subscription_id)
+}
+
+#[ic_cdk::query]
+fn get_subscription(subscription_id: String) -> Result<Subscription, String> {
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().get(&subscription_id)
+            .ok_or("Subscription not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_user_subscriptions(user: Principal) -> Vec<Subscription> {
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter()
+            .filter(|(_, subscription)| subscription.subscriber == user)
+            .map(|(_, subscription)| subscription)
+            .collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_my_subscriptions() -> Vec<Subscription> {
+    let caller = ic_cdk::caller();
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter()
+            .filter(|(_, subscription)| subscription.subscriber == caller)
+            .map(|(_, subscription)| subscription)
+            .collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_subscriptions_by_plan(plan_id: String) -> Vec<Subscription> {
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter()
+            .filter(|(_, subscription)| subscription.plan_id == plan_id)
+            .map(|(_, subscription)| subscription)
+            .collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_all_subscriptions() -> Vec<Subscription> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return vec![];
+    }
+
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter().map(|(_, subscription)| subscription).collect()
+    })
+}
+
+#[ic_cdk::update]
+fn cancel_subscription(subscription_id: String, cancel_immediately: bool) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
+    SUBSCRIPTIONS.with(|subscriptions| {
+        let mut map = subscriptions.borrow_mut();
+        let mut subscription = map.get(&subscription_id)
+            .ok_or("Subscription not found")?;
+        
+        // Check authorization - only subscriber or owner can cancel
+        let owner = OWNER.with(|o| *o.borrow().get());
+        if caller != subscription.subscriber && caller != owner {
+            return Err("Only the subscriber or owner can cancel this subscription".to_string());
+        }
+
+        // Check if already cancelled
+        if matches!(subscription.status, SubscriptionStatus::Cancelled) {
+            return Err("Subscription is already cancelled".to_string());
+        }
+
+        if cancel_immediately {
+            subscription.status = SubscriptionStatus::Cancelled;
+            subscription.cancelled_at = Some(current_time);
+        } else {
+            // Cancel at end of current period
+            subscription.cancel_at_period_end = true;
+        }
+        
+        subscription.updated_at = current_time;
+        map.insert(subscription_id, subscription);
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn pause_subscription(subscription_id: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
+    SUBSCRIPTIONS.with(|subscriptions| {
+        let mut map = subscriptions.borrow_mut();
+        let mut subscription = map.get(&subscription_id)
+            .ok_or("Subscription not found")?;
+        
+        // Check authorization - only subscriber or owner can pause
+        let owner = OWNER.with(|o| *o.borrow().get());
+        if caller != subscription.subscriber && caller != owner {
+            return Err("Only the subscriber or owner can pause this subscription".to_string());
+        }
+
+        // Check if can be paused
+        if !matches!(subscription.status, SubscriptionStatus::Active) {
+            return Err("Only active subscriptions can be paused".to_string());
+        }
+
+        subscription.status = SubscriptionStatus::Paused;
+        subscription.updated_at = current_time;
+        map.insert(subscription_id, subscription);
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn resume_subscription(subscription_id: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
+    SUBSCRIPTIONS.with(|subscriptions| {
+        let mut map = subscriptions.borrow_mut();
+        let mut subscription = map.get(&subscription_id)
+            .ok_or("Subscription not found")?;
+        
+        // Check authorization - only subscriber or owner can resume
+        let owner = OWNER.with(|o| *o.borrow().get());
+        if caller != subscription.subscriber && caller != owner {
+            return Err("Only the subscriber or owner can resume this subscription".to_string());
+        }
+
+        // Check if can be resumed
+        if !matches!(subscription.status, SubscriptionStatus::Paused) {
+            return Err("Only paused subscriptions can be resumed".to_string());
+        }
+
+        subscription.status = SubscriptionStatus::Active;
+        subscription.updated_at = current_time;
+        map.insert(subscription_id, subscription);
+        Ok(())
+    })
+}
+
+#[ic_cdk::update]
+fn update_subscription_metadata(subscription_id: String, metadata: Vec<(String, String)>) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
+    SUBSCRIPTIONS.with(|subscriptions| {
+        let mut map = subscriptions.borrow_mut();
+        let mut subscription = map.get(&subscription_id)
+            .ok_or("Subscription not found")?;
+        
+        // Check authorization - only subscriber or owner can update
+        let owner = OWNER.with(|o| *o.borrow().get());
+        if caller != subscription.subscriber && caller != owner {
+            return Err("Only the subscriber or owner can update this subscription".to_string());
+        }
+
+        subscription.metadata = metadata;
+        subscription.updated_at = current_time;
+        map.insert(subscription_id, subscription);
+        Ok(())
+    })
+}
+
+// ============================================================================
+// SUBSCRIPTION PAYMENT PROCESSING
+// ============================================================================
+
+#[ic_cdk::update]
+fn process_subscription_payment(subscription_id: String) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
+    // Get subscription
+    let mut subscription = SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().get(&subscription_id)
+    }).ok_or("Subscription not found")?;
+
+    // Get plan
+    let plan = SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow().get(&subscription.plan_id)
+    }).ok_or("Subscription plan not found")?;
+
+    // Check if payment is due
+    if current_time < subscription.next_billing_date {
+        return Err("Payment is not yet due".to_string());
+    }
+
+    // Generate payment ID
+    let payment_id = format!("pay_{}_{}", subscription_id, current_time);
+    
+    // Create subscription payment record
+    let subscription_payment = SubscriptionPayment {
+        payment_id: payment_id.clone(),
+        subscription_id: subscription_id.clone(),
+        amount: plan.price,
+        token: plan.token.clone(),
+        billing_period_start: subscription.current_period_start,
+        billing_period_end: subscription.current_period_end,
+        payment_date: current_time,
+        status: "pending".to_string(),
+        transaction_id: None,
+        failure_reason: None,
+    };
+
+    // In a real implementation, you would integrate with actual payment processing here
+    // For this demo, we'll simulate successful payment
+    let mut updated_payment = subscription_payment.clone();
+    updated_payment.status = "paid".to_string();
+    
+    // Update subscription
+    subscription.status = SubscriptionStatus::Active;
+    subscription.current_period_start = subscription.current_period_end;
+    subscription.current_period_end = calculate_next_billing_date(subscription.current_period_end, &plan.billing_interval);
+    subscription.next_billing_date = subscription.current_period_end;
+    subscription.total_payments += plan.price;
+    subscription.payment_failures = 0; // Reset failure count on successful payment
+    subscription.updated_at = current_time;
+    
+    // If subscription was set to cancel at period end, cancel it now
+    if subscription.cancel_at_period_end {
+        subscription.status = SubscriptionStatus::Cancelled;
+        subscription.cancelled_at = Some(current_time);
+    }
+
+    // Store updated subscription
+    SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow_mut().insert(subscription_id.clone(), subscription)
+    });
+
+    // Store payment record
+    SUBSCRIPTION_PAYMENTS.with(|payments| {
+        payments.borrow_mut().insert(payment_id.clone(), updated_payment)
+    });
+
+    Ok(payment_id)
+}
+
+#[ic_cdk::query]
+fn get_subscription_payment(payment_id: String) -> Result<SubscriptionPayment, String> {
+    SUBSCRIPTION_PAYMENTS.with(|payments| {
+        payments.borrow().get(&payment_id)
+            .ok_or("Subscription payment not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_subscription_payments(subscription_id: String) -> Vec<SubscriptionPayment> {
+    SUBSCRIPTION_PAYMENTS.with(|payments| {
+        payments.borrow().iter()
+            .filter(|(_, payment)| payment.subscription_id == subscription_id)
+            .map(|(_, payment)| payment)
+            .collect()
+    })
+}
+
+// ============================================================================
+// SUBSCRIPTION ADMIN METHODS
+// ============================================================================
+
+#[ic_cdk::update]
+fn admin_clear_all_subscriptions() -> Result<u32, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can clear all subscriptions".to_string());
+    }
+
+    // Clear subscription plans
+    let plan_count = SUBSCRIPTION_PLANS.with(|plans| {
+        let plan_ids: Vec<String> = plans.borrow().iter().map(|(id, _)| id).collect();
+        let count = plan_ids.len() as u32;
+        let mut map = plans.borrow_mut();
+        for id in plan_ids {
+            map.remove(&id);
+        }
+        count
+    });
+
+    // Clear subscriptions
+    let subscription_count = SUBSCRIPTIONS.with(|subscriptions| {
+        let subscription_ids: Vec<String> = subscriptions.borrow().iter().map(|(id, _)| id).collect();
+        let count = subscription_ids.len() as u32;
+        let mut map = subscriptions.borrow_mut();
+        for id in subscription_ids {
+            map.remove(&id);
+        }
+        count
+    });
+
+    // Clear subscription payments
+    SUBSCRIPTION_PAYMENTS.with(|payments| {
+        let payment_ids: Vec<String> = payments.borrow().iter().map(|(id, _)| id).collect();
+        let mut map = payments.borrow_mut();
+        for id in payment_ids {
+            map.remove(&id);
+        }
+    });
+
+    Ok(plan_count + subscription_count)
+}
+
+#[ic_cdk::query]
+fn get_subscription_stats() -> (u32, u32, u32) {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return (0, 0, 0);
+    }
+
+    let plan_count = SUBSCRIPTION_PLANS.with(|plans| {
+        plans.borrow().len() as u32
+    });
+
+    let subscription_count = SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().len() as u32
+    });
+
+    let active_subscription_count = SUBSCRIPTIONS.with(|subscriptions| {
+        subscriptions.borrow().iter()
+            .filter(|(_, subscription)| matches!(subscription.status, SubscriptionStatus::Active))
+            .count() as u32
+    });
+
+    (plan_count, subscription_count, active_subscription_count)
 }
 
 // Export candid interface
