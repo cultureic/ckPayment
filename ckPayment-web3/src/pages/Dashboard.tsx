@@ -13,7 +13,9 @@ import {
   LogOut,
   User,
   Factory,
-  Code
+  Code,
+  Tag,
+  CreditCard
 } from 'lucide-react';
 import { useAuth, withAuth, UserInfo, LogoutButton } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
@@ -30,6 +32,8 @@ import MetricsGrid from '@/components/dashboard/MetricsGrid';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { FactoryTab } from '@/components/factory/FactoryTab';
 import ModalBuilderTab from '@/components/modal/ModalBuilderTab';
+import { DiscountTab } from '@/components/discount/DiscountTab';
+import SubscriptionTab from '@/components/subscription/SubscriptionTab';
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   defaultTab = 'analytics',
@@ -194,7 +198,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Tabs Navigation */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
-            <TabsList className="grid w-full grid-cols-5 lg:w-[650px]">
+            <TabsList className="grid w-full grid-cols-7 lg:w-[850px]">
               <TabsTrigger value="analytics" className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Analytics</span>
@@ -214,6 +218,14 @@ const Dashboard: React.FC<DashboardProps> = ({
               <TabsTrigger value="factory" className="flex items-center space-x-2">
                 <Factory className="h-4 w-4" />
                 <span>Factory</span>
+              </TabsTrigger>
+              <TabsTrigger value="discounts" className="flex items-center space-x-2">
+                <Tag className="h-4 w-4" />
+                <span>Discounts</span>
+              </TabsTrigger>
+              <TabsTrigger value="subscriptions" className="flex items-center space-x-2">
+                <CreditCard className="h-4 w-4" />
+                <span>Subscriptions</span>
               </TabsTrigger>
             </TabsList>
 
@@ -380,6 +392,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
               <TabsContent value="factory">
                 <FactoryTab />
+              </TabsContent>
+
+              <TabsContent value="discounts">
+                <DiscountTab />
+              </TabsContent>
+
+              <TabsContent value="subscriptions">
+                <SubscriptionTab />
               </TabsContent>
             </div>
           </Tabs>
