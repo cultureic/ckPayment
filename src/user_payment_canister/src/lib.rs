@@ -227,6 +227,67 @@ impl Storable for ModalAnalytics {
 }
 
 // ============================================================================
+// DISCOUNT COUPON SYSTEM STRUCTURES
+// ============================================================================
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum CouponType {
+    Percentage(u32), // Percentage discount (0-100)
+    FixedAmount(u64), // Fixed amount discount in token's smallest unit
+    FreeShipping,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct DiscountCoupon {
+    pub coupon_id: String,
+    pub code: String, // Human-readable coupon code
+    pub coupon_type: CouponType,
+    pub description: String,
+    pub minimum_amount: Option<u64>, // Minimum purchase amount to use coupon
+    pub applicable_tokens: Vec<String>, // Empty means all tokens
+    pub usage_limit: Option<u32>, // Max number of uses, None = unlimited
+    pub used_count: u32,
+    pub expires_at: Option<u64>, // Timestamp, None = never expires
+    pub is_active: bool,
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+impl Storable for DiscountCoupon {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct CouponUsage {
+    pub usage_id: String,
+    pub coupon_id: String,
+    pub user_principal: Principal,
+    pub invoice_id: String,
+    pub discount_applied: u64,
+    pub used_at: u64,
+}
+
+impl Storable for CouponUsage {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+// ============================================================================
 // STABLE STORAGE
 // ============================================================================
 
@@ -288,6 +349,19 @@ thread_local! {
     static NEXT_MODAL_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
         Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(9))), 1u64).unwrap()
     );
+
+    // Discount Coupon System storage (MemoryId 10, 11, 12)
+    static DISCOUNT_COUPONS: RefCell<StableBTreeMap<String, DiscountCoupon, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(10))))
+    );
+
+    static COUPON_USAGE_HISTORY: RefCell<StableBTreeMap<String, CouponUsage, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(11))))
+    );
+
+    static NEXT_COUPON_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
+        Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(12))), 1u64).unwrap()
+    );
 }
 
 // ============================================================================
@@ -298,6 +372,12 @@ thread_local! {
 fn init(config: UserCanisterConfig, owner: Principal) {
     CONFIG.with(|c| c.borrow_mut().set(config).unwrap());
     OWNER.with(|o| o.borrow_mut().set(owner).unwrap());
+}
+
+#[ic_cdk::post_upgrade]
+fn post_upgrade() {
+    // After upgrade, stable storage is automatically restored
+    // This hook ensures all memory managers and storage are properly initialized
 }
 
 // ============================================================================
@@ -959,6 +1039,365 @@ fn generate_modal_embed_code(modal_id: String) -> Result<String, String> {
     );
 
     Ok(embed_code)
+}
+
+// ============================================================================
+// DISCOUNT COUPON SYSTEM METHODS
+// ============================================================================
+
+#[ic_cdk::update]
+fn create_coupon(mut coupon: DiscountCoupon) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can create coupons".to_string());
+    }
+
+    // Validate coupon configuration
+    if coupon.code.is_empty() {
+        return Err("Coupon code cannot be empty".to_string());
+    }
+    if coupon.description.is_empty() {
+        return Err("Coupon description cannot be empty".to_string());
+    }
+    
+    // Validate coupon type
+    match &coupon.coupon_type {
+        CouponType::Percentage(percent) => {
+            if *percent > 100 {
+                return Err("Percentage discount cannot exceed 100%".to_string());
+            }
+        },
+        CouponType::FixedAmount(amount) => {
+            if *amount == 0 {
+                return Err("Fixed discount amount must be greater than 0".to_string());
+            }
+        },
+        CouponType::FreeShipping => {}
+    }
+
+    // Check if coupon code already exists
+    let code_exists = DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().iter().any(|(_, existing_coupon)| {
+            existing_coupon.code.to_lowercase() == coupon.code.to_lowercase()
+        })
+    });
+
+    if code_exists {
+        return Err("A coupon with this code already exists".to_string());
+    }
+
+    // Generate coupon ID
+    let coupon_id = NEXT_COUPON_ID.with(|id| {
+        let current = *id.borrow().get();
+        id.borrow_mut().set(current + 1).unwrap();
+        format!("coupon_{}", current)
+    });
+
+    // Set coupon metadata
+    coupon.coupon_id = coupon_id.clone();
+    coupon.code = coupon.code.to_uppercase(); // Standardize to uppercase
+    coupon.used_count = 0;
+    coupon.created_at = ic_cdk::api::time();
+    coupon.updated_at = ic_cdk::api::time();
+
+    DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow_mut().insert(coupon_id.clone(), coupon)
+    });
+
+    Ok(coupon_id)
+}
+
+#[ic_cdk::update]
+fn update_coupon(coupon_id: String, mut updated_coupon: DiscountCoupon) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can update coupons".to_string());
+    }
+
+    // Validate coupon configuration
+    if updated_coupon.code.is_empty() {
+        return Err("Coupon code cannot be empty".to_string());
+    }
+    if updated_coupon.description.is_empty() {
+        return Err("Coupon description cannot be empty".to_string());
+    }
+    
+    // Validate coupon type
+    match &updated_coupon.coupon_type {
+        CouponType::Percentage(percent) => {
+            if *percent > 100 {
+                return Err("Percentage discount cannot exceed 100%".to_string());
+            }
+        },
+        CouponType::FixedAmount(amount) => {
+            if *amount == 0 {
+                return Err("Fixed discount amount must be greater than 0".to_string());
+            }
+        },
+        CouponType::FreeShipping => {}
+    }
+
+    DISCOUNT_COUPONS.with(|coupons| {
+        let mut map = coupons.borrow_mut();
+        let existing_coupon = map.get(&coupon_id)
+            .ok_or("Coupon not found")?;
+        
+        // Check if the new code conflicts with other coupons (excluding this one)
+        let code_conflict = map.iter().any(|(id, coupon)| {
+            *id != coupon_id && coupon.code.to_lowercase() == updated_coupon.code.to_lowercase()
+        });
+        
+        if code_conflict {
+            return Err("A coupon with this code already exists".to_string());
+        }
+
+        // Preserve original metadata
+        updated_coupon.coupon_id = coupon_id.clone();
+        updated_coupon.code = updated_coupon.code.to_uppercase();
+        updated_coupon.used_count = existing_coupon.used_count; // Preserve usage count
+        updated_coupon.created_at = existing_coupon.created_at;
+        updated_coupon.updated_at = ic_cdk::api::time();
+        
+        map.insert(coupon_id, updated_coupon);
+        Ok(())
+    })
+}
+
+#[ic_cdk::query]
+fn get_coupon(coupon_id: String) -> Result<DiscountCoupon, String> {
+    DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().get(&coupon_id)
+            .ok_or("Coupon not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn get_coupon_by_code(code: String) -> Result<DiscountCoupon, String> {
+    let uppercase_code = code.to_uppercase();
+    DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().iter()
+            .find(|(_, coupon)| coupon.code == uppercase_code)
+            .map(|(_, coupon)| coupon)
+            .ok_or("Coupon not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_my_coupons() -> Vec<DiscountCoupon> {
+    DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().iter().map(|(_, coupon)| coupon).collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_active_coupons() -> Vec<DiscountCoupon> {
+    let current_time = ic_cdk::api::time();
+    DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().iter()
+            .filter(|(_, coupon)| {
+                coupon.is_active && 
+                (coupon.expires_at.is_none() || coupon.expires_at.unwrap() > current_time) &&
+                (coupon.usage_limit.is_none() || coupon.used_count < coupon.usage_limit.unwrap())
+            })
+            .map(|(_, coupon)| coupon)
+            .collect()
+    })
+}
+
+#[ic_cdk::update]
+fn delete_coupon(coupon_id: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can delete coupons".to_string());
+    }
+
+    DISCOUNT_COUPONS.with(|coupons| {
+        let mut map = coupons.borrow_mut();
+        if map.remove(&coupon_id).is_none() {
+            return Err("Coupon not found".to_string());
+        }
+        Ok(())
+    })?;
+
+    // Clean up usage history for this coupon
+    COUPON_USAGE_HISTORY.with(|usage_history| {
+        let mut map = usage_history.borrow_mut();
+        let usage_ids_to_remove: Vec<String> = map.iter()
+            .filter(|(_, usage)| usage.coupon_id == coupon_id)
+            .map(|(usage_id, _)| usage_id)
+            .collect();
+        
+        for usage_id in usage_ids_to_remove {
+            map.remove(&usage_id);
+        }
+    });
+
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn toggle_coupon_status(coupon_id: String) -> Result<bool, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can toggle coupon status".to_string());
+    }
+
+    DISCOUNT_COUPONS.with(|coupons| {
+        let mut map = coupons.borrow_mut();
+        if let Some(mut coupon) = map.get(&coupon_id) {
+            coupon.is_active = !coupon.is_active;
+            coupon.updated_at = ic_cdk::api::time();
+            let new_status = coupon.is_active;
+            map.insert(coupon_id, coupon);
+            Ok(new_status)
+        } else {
+            Err("Coupon not found".to_string())
+        }
+    })
+}
+
+#[ic_cdk::update]
+fn validate_and_use_coupon(
+    coupon_code: String, 
+    invoice_amount: u64, 
+    token_symbol: String
+) -> Result<(String, u64), String> {
+    let uppercase_code = coupon_code.to_uppercase();
+    let current_time = ic_cdk::api::time();
+    let caller = ic_cdk::caller();
+    
+    // Find the coupon
+    let coupon = DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().iter()
+            .find(|(_, coupon)| coupon.code == uppercase_code)
+            .map(|(_, coupon)| coupon)
+            .ok_or("Coupon not found".to_string())
+    })?;
+
+    // Validate coupon
+    if !coupon.is_active {
+        return Err("Coupon is not active".to_string());
+    }
+
+    if let Some(expires_at) = coupon.expires_at {
+        if current_time > expires_at {
+            return Err("Coupon has expired".to_string());
+        }
+    }
+
+    if let Some(usage_limit) = coupon.usage_limit {
+        if coupon.used_count >= usage_limit {
+            return Err("Coupon usage limit reached".to_string());
+        }
+    }
+
+    if let Some(minimum_amount) = coupon.minimum_amount {
+        if invoice_amount < minimum_amount {
+            return Err(format!("Minimum purchase amount of {} required", minimum_amount));
+        }
+    }
+
+    // Check if coupon applies to this token
+    if !coupon.applicable_tokens.is_empty() && !coupon.applicable_tokens.contains(&token_symbol) {
+        return Err("Coupon is not applicable to this token".to_string());
+    }
+
+    // Calculate discount
+    let discount_amount = match coupon.coupon_type {
+        CouponType::Percentage(percent) => {
+            (invoice_amount * percent as u64) / 100
+        },
+        CouponType::FixedAmount(amount) => {
+            if amount > invoice_amount {
+                invoice_amount // Cap discount at invoice amount
+            } else {
+                amount
+            }
+        },
+        CouponType::FreeShipping => 0, // This would be handled in shipping calculation
+    };
+
+    // Update coupon usage count
+    DISCOUNT_COUPONS.with(|coupons| {
+        let mut map = coupons.borrow_mut();
+        if let Some(mut updated_coupon) = map.get(&coupon.coupon_id) {
+            updated_coupon.used_count += 1;
+            updated_coupon.updated_at = current_time;
+            map.insert(coupon.coupon_id.clone(), updated_coupon);
+        }
+    });
+
+    // Record usage
+    let usage_id = format!("usage_{}_{}", coupon.coupon_id, current_time);
+    let usage = CouponUsage {
+        usage_id: usage_id.clone(),
+        coupon_id: coupon.coupon_id.clone(),
+        user_principal: caller,
+        invoice_id: format!("pending_{}", current_time), // This would be updated with actual invoice ID
+        discount_applied: discount_amount,
+        used_at: current_time,
+    };
+
+    COUPON_USAGE_HISTORY.with(|usage_history| {
+        usage_history.borrow_mut().insert(usage_id.clone(), usage)
+    });
+
+    Ok((coupon.coupon_id, discount_amount))
+}
+
+#[ic_cdk::query]
+fn get_coupon_usage_stats(coupon_id: String) -> Result<(u32, Vec<CouponUsage>), String> {
+    let coupon = DISCOUNT_COUPONS.with(|coupons| {
+        coupons.borrow().get(&coupon_id)
+            .ok_or("Coupon not found".to_string())
+    })?;
+
+    let usage_history: Vec<CouponUsage> = COUPON_USAGE_HISTORY.with(|usage_history| {
+        usage_history.borrow().iter()
+            .filter(|(_, usage)| usage.coupon_id == coupon_id)
+            .map(|(_, usage)| usage)
+            .collect()
+    });
+
+    Ok((coupon.used_count, usage_history))
+}
+
+#[ic_cdk::update]
+fn admin_clear_all_coupons() -> Result<u32, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can clear all coupons".to_string());
+    }
+
+    let count = DISCOUNT_COUPONS.with(|coupons| {
+        let coupon_ids: Vec<String> = coupons.borrow().iter().map(|(id, _)| id).collect();
+        let count = coupon_ids.len() as u32;
+        let mut map = coupons.borrow_mut();
+        for id in coupon_ids {
+            map.remove(&id);
+        }
+        count
+    });
+
+    COUPON_USAGE_HISTORY.with(|usage_history| {
+        let usage_ids: Vec<String> = usage_history.borrow().iter().map(|(id, _)| id).collect();
+        let mut map = usage_history.borrow_mut();
+        for id in usage_ids {
+            map.remove(&id);
+        }
+    });
+
+    Ok(count)
 }
 
 // Export candid interface

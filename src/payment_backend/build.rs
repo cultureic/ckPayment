@@ -8,6 +8,7 @@ fn main() {
 
     // Try to find the user payment canister WASM file
     let wasm_paths = [
+        "user_payment_canister.wasm", // Manually placed optimized WASM (first priority)
         "../../.dfx/ic/canisters/user_payment_canister/user_payment_canister.wasm",
         "../../.dfx/local/canisters/user_payment_canister/user_payment_canister.wasm",
         "../../target/wasm32-unknown-unknown/release/user_payment_canister.wasm",

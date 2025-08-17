@@ -162,8 +162,9 @@ pub async fn upgrade_user_canister(
         return Err("User canister WASM not available".to_string());
     }
     
-    // For upgrade, we pass empty initialization args since we're preserving existing state
-    let arg = vec![];
+    // For upgrade, we pass empty candid-encoded args since we're preserving existing state
+    // Using proper candid encoding for empty arguments
+    let arg = Encode!().map_err(|e| format!("Failed to encode empty arguments: {:?}", e))?;
 
     // Upgrade the user payment canister code
     upgrade_code(canister_id, wasm.to_vec(), arg)
