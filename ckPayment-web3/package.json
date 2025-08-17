@@ -10,7 +10,12 @@
     "build:sdk": "webpack --config webpack.sdk.config.js",
     "build:all": "npm run build && npm run build:sdk",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@dfinity/agent": "^3.2.1",

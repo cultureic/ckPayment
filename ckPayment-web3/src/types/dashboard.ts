@@ -154,7 +154,7 @@ export interface DashboardData {
 export type Environment = 'development' | 'staging' | 'production';
 export type ConnectionStatus = 'active' | 'inactive' | 'error' | 'testing';
 export type WebhookStatus = 'active' | 'inactive' | 'error' | 'paused';
-export type DashboardTab = 'analytics' | 'config' | 'webhooks' | 'factory';
+export type DashboardTab = 'analytics' | 'modals' | 'config' | 'webhooks' | 'factory';
 
 export type Permission = 
   | 'read_metrics'

@@ -12,7 +12,8 @@ import {
   WifiOff,
   LogOut,
   User,
-  Factory
+  Factory,
+  Code
 } from 'lucide-react';
 import { useAuth, withAuth, UserInfo, LogoutButton } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
@@ -28,6 +29,7 @@ import { useICPData } from '@/hooks/useICPData';
 import MetricsGrid from '@/components/dashboard/MetricsGrid';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { FactoryTab } from '@/components/factory/FactoryTab';
+import ModalBuilderTab from '@/components/modal/ModalBuilderTab';
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   defaultTab = 'analytics',
@@ -192,10 +194,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Tabs Navigation */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
-            <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+            <TabsList className="grid w-full grid-cols-5 lg:w-[650px]">
               <TabsTrigger value="analytics" className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Analytics</span>
+              </TabsTrigger>
+              <TabsTrigger value="modals" className="flex items-center space-x-2">
+                <Code className="h-4 w-4" />
+                <span>Modals</span>
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center space-x-2">
                 <Settings className="h-4 w-4" />
@@ -366,6 +372,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   )}
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="modals">
+                <ModalBuilderTab />
               </TabsContent>
 
               <TabsContent value="factory">

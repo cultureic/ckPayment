@@ -445,17 +445,72 @@ thread_local! {
         Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))), 1u64).unwrap()
     );
 
-    // Modal Builder storage (MemoryId 7)
+    // Modal Builder storage (MemoryId 7) with default modal config
     static MODAL_CONFIGS: RefCell<StableBTreeMap<String, ModalConfig, Memory>> = RefCell::new(
-        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(7))))
+        {
+            let mut map = StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(7))));
+            
+            // Add default modal configuration
+            let default_modal = ModalConfig {
+                modal_id: "modal_1".to_string(),
+                name: "Default Payment Modal".to_string(),
+                description: Some("Default modal configuration for payments".to_string()),
+                theme: ModalTheme {
+                    primary_color: "#3b82f6".to_string(),  // Blue-500
+                    background_color: "#ffffff".to_string(), // White
+                    text_color: "#1f2937".to_string(),      // Gray-800
+                    border_radius: 12,
+                    font_family: "Inter, sans-serif".to_string(),
+                },
+                payment_options: PaymentOptions {
+                    allowed_tokens: vec!["ICP".to_string()],
+                    require_email: false,
+                    require_shipping: false,
+                    show_amount_breakdown: true,
+                    enable_tips: false,
+                },
+                branding: BrandingConfig {
+                    logo_url: None,
+                    company_name: "My Business".to_string(),
+                    support_url: None,
+                    terms_url: None,
+                },
+                redirect_urls: RedirectUrls {
+                    success_url: "https://example.com/success".to_string(),
+                    cancel_url: "https://example.com/cancel".to_string(),
+                    webhook_url: None,
+                },
+                template_id: None,
+                created_at: 0,
+                updated_at: 0,
+                is_active: true,
+            };
+            
+            map.insert("modal_1".to_string(), default_modal);
+            map
+        }
     );
 
     static MODAL_ANALYTICS: RefCell<StableBTreeMap<String, ModalAnalytics, Memory>> = RefCell::new(
-        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(8))))
+        {
+            let mut map = StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(8))));
+            
+            // Add default modal analytics
+            let default_analytics = ModalAnalytics {
+                modal_id: "modal_1".to_string(),
+                total_views: 0,
+                successful_payments: 0,
+                conversion_rate: 0.0,
+                revenue_generated: 0,
+            };
+            
+            map.insert("modal_1".to_string(), default_analytics);
+            map
+        }
     );
 
     static NEXT_MODAL_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
-        Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(9))), 1u64).unwrap()
+        Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(9))), 2u64).unwrap()
     );
 
     // Discount Coupon System storage (MemoryId 10, 11, 12)

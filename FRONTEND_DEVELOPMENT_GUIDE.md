@@ -927,4 +927,483 @@ const AccessibleButton = ({ children, onClick }) => {
 </div>
 ```
 
-This guide provides comprehensive patterns for developing the modal builder and subscription management features in the ckPayment frontend. Follow these patterns for consistent, maintainable, and accessible code.
+## Modal Builder System Integration Pattern
+
+### 1. User Canister to Frontend Data Flow
+
+```
+User Payment Canister (Rust)  →  Modal Service (TS)  →  useModal Hook  →  ModalBuilderTab Component
+  ↑                               ↑                       ↑                 ↑
+  ├── MODAL_CONFIGS stable map    ├── createActor          ├── state mgmt    ├── canister selection
+  ├── MODAL_ANALYTICS stable map  ├── API methods          ├── CRUD ops      ├── UI views
+  ├── create_modal_config         ├── error handling       ├── analytics     ├── form validation
+  ├── list_my_modals              ├── data conversion      └── embed code    └── embed generation
+  └── generate_modal_embed_code   └── validation                               
+```
+
+### 2. Backend to Frontend Implementation Mapping
+
+When implementing new features in the user payment canister, follow this mapping to ensure proper frontend integration:
+
+| Backend (Rust)                  | Frontend Service            | Frontend Hook         | Frontend Component       |
+|----------------------------------|-----------------------------|-----------------------|-------------------------|
+| Stable Storage Maps             | Service Constructor         | useState/useRef       | Initial UI State        |
+| `#[derive(CandidType)]` structs | TypeScript interfaces       | Hook parameter types  | Component props         |
+| `#[ic_cdk::update]` methods     | Service CRUD methods        | Hook CRUD functions   | Event handlers          |
+| `#[ic_cdk::query]` methods      | Service read methods        | Hook getter functions | Display components      |
+| Backend validation              | Service validation          | Hook error handling   | Form validation/display |
+| Initialization logic           | Service initialize method   | useEffect init        | Component mounting      |
+| Default values                  | Service fallbacks           | Hook defaults         | Default props           |
+
+### 3. Modal Feature Integration Example
+
+```typescript
+// 1. DEFINE TYPES (matching Candid interface)
+import type { ModalConfig, ModalAnalytics } from '../types/modal';
+
+// 2. CREATE SERVICE METHOD (direct canister call)
+async listModals(canisterId: string): Promise<ServiceResponse<ModalConfig[]>> {
+  try {
+    const actor = await this.getActor(canisterId);
+    const result = await actor.list_my_modals();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: 'Failed to list modals' };
+  }
+}
+
+// 3. CREATE HOOK METHOD (using service)
+const fetchModals = useCallback(async () => {
+  setLoading(true);
+  try {
+    const result = await modalService.listModals(canisterId);
+    if (result.success) {
+      setState(prev => ({ ...prev, modals: result.data || [] }));
+    } else {
+      setError(result.error);
+    }
+  } catch (error) {
+    setError('Failed to fetch modals');
+  } finally {
+    setLoading(false);
+  }
+}, [canisterId]);
+
+// 4. USE IN COMPONENT
+const { modals, loading, error, fetchModals } = useModal({ canisterId });
+
+useEffect(() => {
+  fetchModals();
+}, [fetchModals]);
+
+return (
+  <div>
+    {modals.map(modal => (
+      <ModalConfigCard 
+        key={modal.modal_id} 
+        modal={modal} 
+        onEdit={handleEditModal}
+      />
+    ))}
+  </div>
+);
+```
+
+### 4. Factory Integration Pattern
+
+The Modal Builder follows the same pattern as the Token Manager for factory integration:
+
+```typescript
+// 1. INITIALIZE FACTORY FIRST
+await factoryService.initialize();
+const canisters = await factoryService.getUserCanisters(principal);
+
+// 2. SELECT USER CANISTER
+const [selectedCanisterId, setSelectedCanisterId] = useState(null);
+// ... user selects canister from UI ...
+
+// 3. INITIALIZE SERVICE WITH CANISTER ID
+const modalHook = useModal({ canisterId: selectedCanisterId });
+
+// 4. USE HOOK METHODS
+await modalHook.fetchModals();
+await modalHook.createModal(newModalData);
+```
+
+### 5. Adding New Features
+
+When adding new features to the user payment canister:
+
+1. Define the Rust structs and methods in `user_payment_canister/src/lib.rs`
+2. Update the Candid interface in `user_payment_canister.did`
+3. Create matching TypeScript interfaces in `types/modal.ts` or other type files
+4. Add service methods in `services/modal-service.ts`
+5. Extend the hook in `hooks/useModal.ts` with new methods
+6. Update UI components to use the new functionality
+
+### 6. Directory Structure and Navigation
+
+**IMPORTANT**: Always work from the parent `/Users/cesarangulo/Documents/icp/ckPayment` directory to see the full project structure:
+
+```
+ckPayment/                          # ← PARENT DIRECTORY - START HERE
+├── ckPayment-web3/                # Frontend React app
+│   ├── src/
+│   │   ├── components/modal/      # Modal builder components
+│   │   ├── services/             # Service layer
+│   │   ├── hooks/                # Custom hooks
+│   │   └── types/                # TypeScript types
+│   ├── package.json
+│   └── vite.config.ts
+├── src/                           # Backend Rust canisters
+│   ├── user_payment_canister/    # Main canister with modal system
+│   │   ├── src/lib.rs           # Backend modal implementation
+│   │   └── Cargo.toml
+│   └── payment_backend/
+│       └── user_payment_canister.did  # Candid interface
+├── dfx.json
+└── README.md
+```
+
+**Navigation Commands**:
+```bash
+# Always start from parent directory
+cd /Users/cesarangulo/Documents/icp/ckPayment
+
+# To work on frontend
+cd ckPayment-web3
+npm run dev
+
+# To work on backend (from parent)
+dfx build
+dfx deploy
+
+# To check backend changes (from parent)
+ls -la src/user_payment_canister/src/
+cat src/payment_backend/user_payment_canister.did
+
+# To go back to parent
+cd ..
+```
+
+### 7. Testing Modal Builder Integration
+
+To test the modal builder integration with the user payment canister:
+
+**From parent directory `/Users/cesarangulo/Documents/icp/ckPayment`:**
+
+1. **Deploy Backend Changes**:
+   ```bash
+   dfx build user_payment_canister
+   dfx deploy user_payment_canister
+   ```
+
+2. **Launch Frontend** (from parent):
+   ```bash
+   cd ckPayment-web3
+   npm run dev
+   ```
+
+3. **Test Integration**:
+   - Navigate to http://localhost:8080
+   - Go to Dashboard → Modals tab
+   - Select a user payment canister from the dropdown
+   - Verify the default modal "modal_1" appears in the list
+   - Test create, edit, delete operations
+   - Test embed code generation and analytics
+
+4. **Check Backend Connection**:
+   ```bash
+   # From parent directory
+   dfx canister call user_payment_canister list_my_modals
+   ```
+
+## State Reuse and Data Flow Optimization Pattern
+
+### 1. Problem: Duplicate Data Fetching
+
+**WRONG** ❌ - Each tab fetches the same data separately:
+```typescript
+// FactoryTab.tsx
+const FactoryTab = () => {
+  const [userCanisters, setUserCanisters] = useState([]);
+  
+  useEffect(() => {
+    // Fetch user canisters
+    factoryService.getUserCanisters(principal).then(setUserCanisters);
+  }, [principal]);
+  
+  return <div>{/* Factory UI */}</div>;
+};
+
+// ModalBuilderTab.tsx - DUPLICATE FETCHING!
+const ModalBuilderTab = () => {
+  const [userCanisters, setUserCanisters] = useState([]);
+  
+  useEffect(() => {
+    // Same data fetched again! ❌
+    factoryService.getUserCanisters(principal).then(setUserCanisters);
+  }, [principal]);
+  
+  return <div>{/* Modal UI */}</div>;
+};
+```
+
+**Issues with this approach:**
+- Duplicate API calls
+- Inconsistent data between tabs
+- Principal parsing errors
+- Slower loading times
+- Race conditions
+
+### 2. Solution: Single Source of Truth Pattern
+
+**CORRECT** ✅ - One hook fetches, others reuse:
+```typescript
+// useFactory.ts - Single source of truth
+export function useFactory() {
+  const [data, setData] = useState({
+    userCanisters: [], // ← Fetched once here
+    stats: null,
+    allCanisters: []
+  });
+  
+  const fetchData = useCallback(async () => {
+    const userCanisters = await factoryService.getUserCanisters(principal);
+    setData(prev => ({ ...prev, userCanisters }));
+  }, [principal]);
+  
+  return { data, fetchData, isLoading, error };
+}
+
+// FactoryTab.tsx - Primary data owner
+const FactoryTab = () => {
+  const { data, fetchData } = useFactory(); // ← Fetches data
+  
+  return (
+    <div>
+      {data?.userCanisters.map(canister => 
+        <TokenManager canister={canister} onRefresh={fetchData} />
+      )}
+    </div>
+  );
+};
+
+// ModalBuilderTab.tsx - Reuses existing data
+const ModalBuilderTab = () => {
+  const { data } = useFactory(); // ← Reuses data, no fetching!
+  const userCanisters = data?.userCanisters || [];
+  
+  return (
+    <div>
+      <Select>
+        {userCanisters.map(canister => 
+          <SelectItem value={canister.id.toText()}>{canister.name}</SelectItem>
+        )}
+      </Select>
+    </div>
+  );
+};
+```
+
+### 3. Multi-Level State Sharing Pattern
+
+```typescript
+// Level 1: Factory data (user canisters list)
+const { data: factoryData } = useFactory();
+const userCanisters = factoryData?.userCanisters || [];
+
+// Level 2: Selected canister operations
+const [selectedCanisterId, setSelectedCanisterId] = useState(null);
+
+// Level 3: Feature-specific data (modals, tokens, etc.)
+const modalHook = useModal({ canisterId: selectedCanisterId });
+const tokenHook = useTokens({ canisterId: selectedCanisterId });
+```
+
+### 4. Complete State Reuse Implementation
+
+```typescript
+// components/modal/ModalBuilderTab.tsx
+const ModalBuilderTab = () => {
+  const { isAuthenticated } = useAuth();
+  
+  // ✅ REUSE factory state instead of refetching
+  const { data: factoryData, isLoading: factoryLoading, error: factoryError } = useFactory();
+  const userCanisters = factoryData?.userCanisters || [];
+  
+  // ✅ Local state only for UI-specific concerns
+  const [selectedCanisterId, setSelectedCanisterId] = useState(null);
+  
+  // ✅ Auto-select first canister when factory data loads
+  useEffect(() => {
+    if (!selectedCanisterId && userCanisters.length > 0) {
+      setSelectedCanisterId(userCanisters[0].id.toText());
+    }
+  }, [userCanisters, selectedCanisterId]);
+  
+  // ✅ Feature-specific hook only for modal operations
+  const modalHook = useModal({ 
+    canisterId: selectedCanisterId,
+    autoFetch: isAuthenticated && !!selectedCanisterId
+  });
+  
+  return (
+    <div>
+      {/* Canister Selection - reuses factory data */}
+      {factoryLoading ? (
+        <div>Loading canisters...</div>
+      ) : (
+        <Select value={selectedCanisterId} onValueChange={setSelectedCanisterId}>
+          {userCanisters.map(canister => (
+            <SelectItem key={canister.id.toText()} value={canister.id.toText()}>
+              {canister.name}
+            </SelectItem>
+          ))}
+        </Select>
+      )}
+      
+      {/* Feature UI - uses feature-specific hook */}
+      {modalHook.modals.map(modal => (
+        <ModalCard key={modal.modal_id} modal={modal} />
+      ))}
+    </div>
+  );
+};
+```
+
+### 5. State Dependency Hierarchy
+
+```
+┌─────────────────────────────────────────┐
+│ useFactory() - Level 1                  │
+│ ├── userCanisters []                    │
+│ ├── stats                               │
+│ └── allCanisters []                     │
+└─────────────┬───────────────────────────┘
+              │ (reused by)
+              ▼
+┌─────────────────────────────────────────┐
+│ Component State - Level 2               │
+│ ├── selectedCanisterId                  │
+│ ├── activeView                          │
+│ └── UI-specific state                   │
+└─────────────┬───────────────────────────┘
+              │ (drives)
+              ▼
+┌─────────────────────────────────────────┐
+│ Feature Hooks - Level 3                 │
+│ ├── useModal(selectedCanisterId)        │
+│ ├── useTokens(selectedCanisterId)       │
+│ └── useSubscription(selectedCanisterId) │
+└─────────────────────────────────────────┘
+```
+
+### 6. Implementation Rules
+
+#### DO ✅:
+- Use `useFactory()` for user canister list in ALL tabs
+- Keep UI-specific state local to components
+- Pass `selectedCanisterId` to feature-specific hooks
+- Reuse loading states from parent hooks
+- Share data between sibling components through parent hooks
+
+#### DON'T ❌:
+- Fetch the same data in multiple places
+- Duplicate factory calls across tabs
+- Create separate loading states for the same data
+- Parse principals multiple times
+- Fetch user canisters in modal/token/subscription tabs
+
+### 7. Error Prevention
+
+```typescript
+// ❌ WRONG - This causes "Invalid principal argument" errors
+const ModalBuilderTab = () => {
+  const [userCanisters, setUserCanisters] = useState([]);
+  
+  useEffect(() => {
+    const loadCanisters = async () => {
+      try {
+        await factoryService.initialize();
+        const canisters = await factoryService.getUserCanisters(principal);
+        setUserCanisters(canisters); // ← Principal parsing error here!
+      } catch (error) {
+        console.error('Failed to get user canisters:', error);
+      }
+    };
+    loadCanisters();
+  }, [principal]);
+};
+
+// ✅ CORRECT - Reuses already-parsed data
+const ModalBuilderTab = () => {
+  const { data: factoryData, isLoading } = useFactory();
+  const userCanisters = factoryData?.userCanisters || []; // ← Already parsed!
+  
+  return (
+    <div>
+      {isLoading ? (
+        <div>Loading...</div>
+      ) : (
+        <Select>
+          {userCanisters.map(canister => /* Already valid principals */)}
+        </Select>
+      )}
+    </div>
+  );
+};
+```
+
+### 8. Testing State Reuse
+
+To verify state reuse is working correctly:
+
+1. **Check Network Tab**: Should see only ONE call to `getUserCanisters`
+2. **Console Logs**: No duplicate "Loading canisters" messages
+3. **Error Console**: No "Invalid principal argument" errors
+4. **UI Behavior**: Data appears instantly when switching tabs
+
+### 9. Performance Benefits
+
+```typescript
+// Before: Multiple API calls
+// Factory Tab:     getUserCanisters() ← API call 1
+// Modal Tab:       getUserCanisters() ← API call 2  
+// Token Tab:       getUserCanisters() ← API call 3
+// Total: 3 API calls, 3 principal parsing operations
+
+// After: Single API call
+// Factory Hook:    getUserCanisters() ← API call 1
+// All tabs:        reuse factoryData.userCanisters
+// Total: 1 API call, 1 principal parsing operation
+```
+
+### 10. Advanced: Shared Actions Pattern
+
+```typescript
+// When one tab modifies data, others auto-update
+const TokenManager = ({ canister, onRefresh }) => {
+  const handleAddToken = async (tokenData) => {
+    await userPaymentService.addSupportedToken(canister.id.toText(), tokenData);
+    
+    // ✅ Refresh factory data so ALL tabs see the update
+    onRefresh(); // This refreshes useFactory() state
+  };
+};
+
+const FactoryTab = () => {
+  const { data, refreshData } = useFactory();
+  
+  return (
+    <TokenManager 
+      canister={selectedCanister}
+      onRefresh={refreshData} // ← Shared refresh action
+    />
+  );
+};
+
+// Other tabs automatically get updated data!
+```
+
+This guide provides comprehensive patterns for developing frontend features that integrate with the user payment canister. Follow these patterns for consistent, maintainable, and accessible code.

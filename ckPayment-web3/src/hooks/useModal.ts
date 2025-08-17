@@ -199,14 +199,9 @@ export const useModal = (options: UseModalOptions): UseModalReturn => {
       return { success: false, error: 'Modal not found' };
     }
 
-    const updatedModalData: ModalConfigFormData = {
-      name: modal.name,
-      description: modal.description,
-      theme: modal.theme,
-      payment_options: modal.payment_options,
-      branding: modal.branding,
-      redirect_urls: modal.redirect_urls,
-      template_id: modal.template_id,
+    // Use the simplified structure that matches the modal service
+    const updatedModalData = {
+      ...modal,
       is_active: !modal.is_active,
     };
 

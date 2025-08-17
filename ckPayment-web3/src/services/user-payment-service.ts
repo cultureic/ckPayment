@@ -58,6 +58,21 @@ export type UserPaymentCanisterActor = ActorSubclass<{
   get_transaction_history: (limit: bigint, offset: bigint) => Promise<PaymentTransaction[]>;
   health: () => Promise<[string, bigint, bigint]>;
   get_owner: () => Promise<Principal>;
+  canister_id: () => Promise<Principal>;
+  get_invoice: (invoice_id: string) => Promise<PaymentInvoice | null>;
+  get_transaction: (transaction_id: string) => Promise<PaymentTransaction | null>;
+  process_payment: (invoice_id: string, payer: Principal) => Promise<{ Ok?: PaymentTransaction; Err?: string }>;
+  withdraw: (token: string, amount: bigint, to: Principal) => Promise<{ Ok?: bigint; Err?: string }>;
+  
+  // Modal Builder Methods - matching the actual DID file
+  create_modal_config: (config: any) => Promise<{ Ok?: string; Err?: string }>;
+  update_modal_config: (modal_id: string, config: any) => Promise<{ Ok?: null; Err?: string }>;
+  get_modal_config: (modal_id: string) => Promise<{ Ok?: any; Err?: string }>;
+  list_my_modals: () => Promise<any[]>;
+  delete_modal_config: (modal_id: string) => Promise<{ Ok?: null; Err?: string }>;
+  get_modal_analytics: (modal_id: string) => Promise<{ Ok?: any; Err?: string }>;
+  generate_modal_embed_code: (modal_id: string) => Promise<{ Ok?: string; Err?: string }>;
+  track_modal_view: (modal_id: string) => Promise<{ Ok?: null; Err?: string }>;
 }>;
 
 class UserPaymentService {
