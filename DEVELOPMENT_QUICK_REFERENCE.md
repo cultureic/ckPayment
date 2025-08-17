@@ -49,6 +49,21 @@ dfx canister status user_payment_canister
 dfx canister logs user_payment_canister
 ```
 
+### User Payment Canister WASM Update Flow
+```bash
+# 1. Build user payment canister with new features
+cargo build --target wasm32-unknown-unknown --release --manifest-path src/user_payment_canister/Cargo.toml
+
+# 2. Rebuild factory backend to embed new WASM
+cargo build --target wasm32-unknown-unknown --release --manifest-path src/payment_backend/Cargo.toml
+
+# 3. Deploy factory backend with new embedded WASM
+dfx deploy payment_backend --network ic
+
+# 4. Upgrade existing user payment canisters via factory admin method
+dfx canister call payment_backend admin_upgrade_user_canister '(principal "CANISTER_ID")' --network ic
+```
+
 ### Frontend Development
 ```bash
 # Dashboard development
