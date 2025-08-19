@@ -10,7 +10,7 @@ import type { IDL } from "@dfinity/candid";
 import { _SERVICE } from './ckbtc_ledger.did';
 
 export declare const idlFactory: IDL.InterfaceFactory;
-export declare const canisterIcrc1: string;
+export declare const canisterId: string;
 
 export declare interface CreateActorOptions {
   /**
@@ -38,7 +38,7 @@ export declare interface CreateActorOptions {
  * @param {CreateActorOptions["actorOptions"]} options.actorOptions - options for the Actor
  * @see {@link ActorConfig}
  */
-export declare const createActorIcrc1: (
+export declare const createActor: (
   canisterId: string | Principal,
   options?: CreateActorOptions
 ) => ActorSubclass<_SERVICE>;

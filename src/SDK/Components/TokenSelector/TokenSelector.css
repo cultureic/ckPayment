@@ -1,0 +1,81 @@
+.ckpay-token-selector {
+  margin-bottom: 1rem;
+}
+
+.ckpay-token-selector.error {
+  padding: 1rem;
+  background-color: #fee;
+  border: 1px solid #f99;
+  border-radius: 4px;
+  color: #900;
+}
+
+.ckpay-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.ckpay-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: white;
+  transition: border-color 0.2s ease;
+}
+
+.ckpay-select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.ckpay-select:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.ckpay-token-info {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ckpay-token-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ckpay-token-name {
+  font-weight: 600;
+  color: #333;
+}
+
+.ckpay-token-symbol {
+  font-size: 12px;
+  color: #666;
+}
+
+.ckpay-token-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.ckpay-token-count {
+  margin-top: 0.5rem;
+  font-size: 12px;
+  color: #666;
+  text-align: right;
+}

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ckPayment SDK - Working Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+    }
+    .button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0.5rem;
+      font-size: 16px;
+    }
+    .button:hover {
+      background-color: #0056b3;
+    }
+    .canister-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-family: monospace;
+    }
+    #payment-container {
+      min-height: 50px;
+      border: 2px dashed #ddd;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+    }
+    .status {
+      background-color: #f8f9fa;
+      padding: 1rem;
+      border-radius: 4px;
+      border-left: 4px solid #007bff;
+      margin: 1rem 0;
+    }
+    .error {
+      background-color: #fee;
+      border-left-color: #dc3545;
+      color: #721c24;
+    }
+    .success {
+      background-color: #d4edda;
+      border-left-color: #28a745;
+      color: #155724;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ckPayment SDK - Working Example</h1>
+    <p>This connects to your actual payment canister and loads real tokens.</p>
+    
+    <div>
+      <h3>Step 1: Enter Your Payment Canister ID</h3>
+      <input 
+        type="text" 
+        id="canister-input" 
+        class="canister-input"
+        placeholder="Enter your payment canister ID"
+        value="6tzcr-tqaaa-aaaag-aufoa-cai"
+      >
+      <button class="button" onclick="initializePaymentSDK()">Connect & Initialize SDK</button>
+    </div>
+
+    <div id="status" class="status">
+      Enter your payment canister ID and click "Connect & Initialize SDK"
+    </div>
+
+    <div>
+      <h3>Payment Actions</h3>
+      <button class="button" onclick="showFlexiblePayment()">Flexible Payment</button>
+      <button class="button" onclick="showFixedPayment()">Fixed Payment (0.001 ckBTC)</button>
+      <button class="button" onclick="showCustomPayment()">Custom Payment</button>
+    </div>
+
+    <div>
+      <h3>Payment Container</h3>
+      <div id="payment-container">SDK will render payment components here...</div>
+    </div>
+  </div>
+
+  <!-- Load React, ReactDOM, and dependencies from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Load DFINITY Agent and dependencies -->
+  <script src="https://unpkg.com/@dfinity/agent@0.19.3/lib/cjs/index.js"></script>
+  <script src="https://unpkg.com/@dfinity/principal@0.19.3/lib/cjs/index.js"></script>
+  <script src="https://unpkg.com/@dfinity/candid@0.19.3/lib/cjs/index.js"></script>
+
+  <script>
+    // Global variables
+    let paymentProvider = null;
+    let currentCanisterId = null;
+
+    // User Payment Canister IDL (simplified for demo)
+    const userPaymentIdl = ({ IDL }) => {
+      const TokenConfig = IDL.Record({
+        symbol: IDL.Text,
+        name: IDL.Text,
+        decimals: IDL.Nat8,
+        canister_id: IDL.Principal,
+        fee: IDL.Nat64,
+        logo: IDL.Opt(IDL.Text),
+        is_active: IDL.Bool,
+      });
+
+      return IDL.Service({
+        get_supported_tokens: IDL.Func([], [IDL.Vec(TokenConfig)], ['query']),
+        health: IDL.Func([], [IDL.Tuple(IDL.Text, IDL.Nat64, IDL.Nat64)], ['query']),
+      });
+    };
+
+    // Create a simple payment provider
+    class SimplePaymentProvider {
+      constructor(canisterId, host = "https://ic0.app") {
+        this.canisterId = canisterId;
+        this.host = host;
+        this.actor = null;
+        this.supportedTokens = [];
+        this.isConnected = false;
+        this.error = null;
+      }
+
+      async initialize() {
+        try {
+          updateStatus("Connecting to canister...", 'status');
+          
+          // Create agent
+          const agent = new dfinity.agent.HttpAgent({ host: this.host });
+
+          // Create actor
+          this.actor = dfinity.agent.Actor.createActor(userPaymentIdl, {
+            agent,
+            canisterId: this.canisterId,
+          });
+
+          // Test connection and load tokens
+          const [status, version, uptime] = await this.actor.health();
+          updateStatus(`Connected! Status: ${status}, Version: ${version}`, 'success');
+
+          const tokens = await this.actor.get_supported_tokens();
+          this.supportedTokens = tokens;
+          this.isConnected = true;
+          
+          updateStatus(`Loaded ${tokens.length} supported tokens`, 'success');
+          return true;
+
+        } catch (error) {
+          console.error('Failed to initialize:', error);
+          this.error = error.message;
+          updateStatus(`Connection failed: ${error.message}`, 'error');
+          return false;
+        }
+      }
+
+      getSupportedTokens() {
+        return this.supportedTokens;
+      }
+
+      getPaymentAddress() {
+        return this.canisterId;
+      }
+    }
+
+    // Utility functions
+    function updateStatus(message, type = 'status') {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+    }
+
+    // SDK initialization
+    async function initializePaymentSDK() {
+      const canisterId = document.getElementById('canister-input').value.trim();
+      
+      if (!canisterId) {
+        updateStatus('Please enter a canister ID', 'error');
+        return;
+      }
+
+      currentCanisterId = canisterId;
+      paymentProvider = new SimplePaymentProvider(canisterId);
+      
+      const success = await paymentProvider.initialize();
+      
+      if (success) {
+        updateStatus(`SDK Ready! Connected to ${canisterId}`, 'success');
+        showTokenList();
+      }
+    }
+
+    // Show supported tokens
+    function showTokenList() {
+      if (!paymentProvider || !paymentProvider.isConnected) {
+        updateStatus('SDK not initialized', 'error');
+        return;
+      }
+
+      const container = document.getElementById('payment-container');
+      const tokens = paymentProvider.getSupportedTokens();
+      
+      container.innerHTML = `
+        <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; background: white;">
+          <h4>✅ Connected to Payment Canister</h4>
+          <p><strong>Canister ID:</strong> <code>${currentCanisterId}</code></p>
+          <p><strong>Payment Address:</strong> <code>${paymentProvider.getPaymentAddress()}</code></p>
+          <h4>Supported Tokens (${tokens.length})</h4>
+          <ul style="margin: 0.5rem 0;">
+            ${tokens.map(token => `
+              <li style="margin: 0.5rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                <strong>${token.name}</strong> (${token.symbol}) - ${token.decimals} decimals
+                <br><small>Canister: ${token.canister_id.toString()}</small>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    // Payment functions
+    function showFlexiblePayment() {
+      if (!paymentProvider?.isConnected) {
+        updateStatus('Please initialize SDK first', 'error');
+        return;
+      }
+
+      const container = document.getElementById('payment-container');
+      const tokens = paymentProvider.getSupportedTokens();
+      
+      container.innerHTML = `
+        <div style="padding: 1rem; border: 1px solid #007bff; border-radius: 4px; background: white;">
+          <h4>💳 Flexible Payment</h4>
+          <div style="margin: 1rem 0;">
+            <label>Amount:</label>
+            <input type="number" id="flex-amount" placeholder="Enter amount" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0;">
+          </div>
+          <div style="margin: 1rem 0;">
+            <label>Token:</label>
+            <select id="flex-token" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0;">
+              <option value="">Select a token</option>
+              ${tokens.map(token => `<option value="${token.symbol}">${token.name} (${token.symbol})</option>`).join('')}
+            </select>
+          </div>
+          <div style="margin: 1rem 0;">
+            <label>Description:</label>
+            <input type="text" id="flex-desc" placeholder="Payment description" style="width: 100%; padding: 0.5rem; margin: 0.5rem 0;">
+          </div>
+          <button onclick="createFlexiblePayment()" style="background: #28a745; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer;">
+            Create Payment
+          </button>
+          <button onclick="showTokenList()" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
+            Cancel
+          </button>
+        </div>
+      `;
+    }
+
+    function showFixedPayment() {
+      if (!paymentProvider?.isConnected) {
+        updateStatus('Please initialize SDK first', 'error');
+        return;
+      }
+
+      const container = document.getElementById('payment-container');
+      
+      container.innerHTML = `
+        <div style="padding: 1rem; border: 1px solid #007bff; border-radius: 4px; background: white;">
+          <h4>🔒 Fixed Payment: 0.001 ckBTC</h4>
+          <p><strong>Amount:</strong> 100,000 satoshis (0.001 ckBTC)</p>
+          <p><strong>Description:</strong> Fixed ckBTC Payment</p>
+          <p><strong>Payment Address:</strong> <code>${paymentProvider.getPaymentAddress()}</code></p>
+          <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+            <h5>Payment Instructions:</h5>
+            <ol>
+              <li>Send exactly <strong>0.001 ckBTC</strong> to the address above</li>
+              <li>Include any reference/memo if required</li>
+              <li>Payment will be processed automatically</li>
+            </ol>
+          </div>
+          <button onclick="showTokenList()" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer;">
+            Back to Token List
+          </button>
+        </div>
+      `;
+    }
+
+    function showCustomPayment() {
+      if (!paymentProvider?.isConnected) {
+        updateStatus('Please initialize SDK first', 'error');
+        return;
+      }
+
+      const container = document.getElementById('payment-container');
+      
+      container.innerHTML = `
+        <div style="padding: 1rem; border: 1px solid #007bff; border-radius: 4px; background: white;">
+          <h4>⚙️ Custom Payment Builder</h4>
+          <p>Build your custom payment with advanced options:</p>
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+            <strong>Coming Soon:</strong> Custom payment builder with metadata, expiration, and webhook support.
+          </div>
+          <p><strong>Payment Address:</strong> <code>${paymentProvider.getPaymentAddress()}</code></p>
+          <button onclick="showFlexiblePayment()" style="background: #007bff; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer;">
+            Use Flexible Payment
+          </button>
+          <button onclick="showTokenList()" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; margin-left: 0.5rem;">
+            Back to Token List
+          </button>
+        </div>
+      `;
+    }
+
+    function createFlexiblePayment() {
+      const amount = document.getElementById('flex-amount').value;
+      const token = document.getElementById('flex-token').value;
+      const description = document.getElementById('flex-desc').value;
+
+      if (!amount || !token) {
+        updateStatus('Please fill in amount and token', 'error');
+        return;
+      }
+
+      const selectedToken = paymentProvider.getSupportedTokens().find(t => t.symbol === token);
+      const formattedAmount = (Number(amount) * Math.pow(10, selectedToken.decimals)).toString();
+
+      const container = document.getElementById('payment-container');
+      container.innerHTML = `
+        <div style="padding: 1rem; border: 1px solid #28a745; border-radius: 4px; background: white;">
+          <h4>✅ Payment Created Successfully!</h4>
+          <div style="background: #d4edda; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+            <h5>Payment Details:</h5>
+            <p><strong>Amount:</strong> ${amount} ${token}</p>
+            <p><strong>Raw Amount:</strong> ${formattedAmount} (with ${selectedToken.decimals} decimals)</p>
+            <p><strong>Description:</strong> ${description || 'No description'}</p>
+            <p><strong>Payment Address:</strong> <code>${paymentProvider.getPaymentAddress()}</code></p>
+            <p><strong>Token Contract:</strong> <code>${selectedToken.canister_id.toString()}</code></p>
+          </div>
+          <div style="background: #cce5ff; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+            <h5>Next Steps:</h5>
+            <ol>
+              <li>Send <strong>${amount} ${token}</strong> to the payment address above</li>
+              <li>Use the token contract ID for transfers</li>
+              <li>Payment will be automatically detected and processed</li>
+            </ol>
+          </div>
+          <button onclick="showTokenList()" style="background: #007bff; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer;">
+            Create Another Payment
+          </button>
+        </div>
+      `;
+
+      updateStatus(`Payment created: ${amount} ${token}`, 'success');
+    }
+
+    // Initialize on page load
+    window.addEventListener('load', () => {
+      updateStatus('Ready to connect to your payment canister', 'status');
+    });
+  </script>
+</body>
+</html>

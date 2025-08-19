@@ -1,14 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Menu, X, ExternalLink } from "lucide-react";
+import { Menu, X, ExternalLink, LayoutDashboard, User, Copy, Check } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated, principal } = useAuth();
+
+  const handleCopyPrincipal = async () => {
+    if (!principal) return;
+    try {
+      await navigator.clipboard.writeText(principal);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy principal:', error);
+    }
+  };
 
   const scrollToSection = (id: string) => {
     // Handle docs navigation
@@ -194,6 +208,42 @@ const Navbar = () => {
                 </button>
               );
             })}
+            
+            {/* User Principal Display */}
+            {isAuthenticated && principal && (
+              <div className="flex items-center space-x-2 px-3 py-1 bg-muted/30 rounded-lg border">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-mono text-muted-foreground">
+                  {principal.slice(0, 8)}...{principal.slice(-4)}
+                </span>
+                <button
+                  onClick={handleCopyPrincipal}
+                  className="p-1 hover:bg-muted rounded transition-colors"
+                  title="Copy Principal ID"
+                >
+                  {copySuccess ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                  )}
+                </button>
+              </div>
+            )}
+            
+            {/* Dashboard Link */}
+            <Link
+              to="/dashboard"
+              className={`text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1 ${
+                location.pathname === '/dashboard' ? 'text-primary' : ''
+              }`}
+              title="Access Dashboard"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Dashboard</span>
+              {isAuthenticated && (
+                <div className="w-2 h-2 bg-green-500 rounded-full" title="Authenticated" />
+              )}
+            </Link>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -284,6 +334,46 @@ const Navbar = () => {
                 </button>
               );
             })}
+            
+            {/* User Principal Display - Mobile */}
+            {isAuthenticated && principal && (
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-md border mx-4">
+                <div className="flex items-center space-x-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-mono text-muted-foreground">
+                    {principal.slice(0, 8)}...{principal.slice(-4)}
+                  </span>
+                </div>
+                <button
+                  onClick={handleCopyPrincipal}
+                  className="p-1 hover:bg-muted rounded transition-colors"
+                  title="Copy Principal ID"
+                >
+                  {copySuccess ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                  )}
+                </button>
+              </div>
+            )}
+            
+            {/* Dashboard Link - Mobile */}
+            <Link
+              to="/dashboard"
+              className={`py-3 px-4 text-left hover:bg-muted rounded-md transition-colors flex items-center space-x-2 w-full ${
+                location.pathname === '/dashboard' ? 'text-primary bg-muted/50' : 'text-foreground'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+              title="Access Dashboard"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Dashboard</span>
+              {isAuthenticated && (
+                <div className="w-2 h-2 bg-green-500 rounded-full ml-auto" title="Authenticated" />
+              )}
+            </Link>
+            
             <Button 
               className="mt-4 w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-glow-soft hover:shadow-glow-primary transition-all duration-300"
               onClick={() => scrollToSection('get-started')}

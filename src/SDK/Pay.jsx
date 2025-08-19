@@ -2,22 +2,35 @@ import React, { Component, createContext, useContext, useEffect, useState } from
 import { createRoot } from 'react-dom/client';
 import { AuthProvider, useAuth } from "./auth";
 import { WalletProvider, useTokens } from "./Hooks/walletProvider";
+import { UserPaymentCanisterProvider, useUserPaymentCanisterContext } from "./Hooks/userPaymentCanisterProvider";
+import { useCoupons } from "./Hooks/useCoupons";
+import { useModalConfig } from "./Hooks/useModalConfig";
 import { addItem, addProfile, getItem, buyItem } from "./interfaceHook";
 import { motion } from "framer-motion";
-import { Copy, Check, Bitcoin, CircleDollarSign, Loader2, X, ChevronLeft, ChevronRight, CheckCircle2, Zap, ArrowRight, Wallet } from "lucide-react";
+import { Copy, Check, Bitcoin, CircleDollarSign, Loader2, X, ChevronLeft, ChevronRight, CheckCircle2, Zap, ArrowRight, Wallet, Tag, Gift } from "lucide-react";
+import TokenIcon from "./Components/TokenIcon";
 import "./index.css";
 
 // Payment Context to share state
 const PaymentContext = createContext();
 
 const PaymentProvider = ({ children }) => {
-  const [selectedMethod, setSelectedMethod] = useState('icp');
+  const [selectedMethod, setSelectedMethod] = useState('');
   const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState(null);
   const [error, setError] = useState(null);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [finalAmount, setFinalAmount] = useState(0);
 
   return (
-    <PaymentContext.Provider value={{ selectedMethod, setSelectedMethod, amount, setAmount, transactionId, setTransactionId, error, setError }}>
+    <PaymentContext.Provider value={{ 
+      selectedMethod, setSelectedMethod, 
+      amount, setAmount, 
+      transactionId, setTransactionId, 
+      error, setError,
+      appliedCoupon, setAppliedCoupon,
+      finalAmount, setFinalAmount
+    }}>
       {children}
     </PaymentContext.Provider>
   );
@@ -27,17 +40,30 @@ const usePayment = () => useContext(PaymentContext);
 
 // Combined Auth and Payment Method Step
 const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, login, logout, props }) => {
-  const { selectedMethod, setSelectedMethod, amount, setAmount, error, setError, setTransactionId } = usePayment();
+  const { selectedMethod, setSelectedMethod, amount, setAmount, error, setError, setTransactionId, appliedCoupon, setAppliedCoupon, finalAmount, setFinalAmount } = usePayment();
   const { balances } = useTokens();
+  const { supportedTokens } = useUserPaymentCanisterContext();
   const { backendActor: actor, principal } = useAuth();
+  const { validateCoupon, validatingCoupon, calculateDiscount } = useCoupons();
+  const { modalConfig, theme, branding, dynamicStyles } = useModalConfig();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isValidAmount, setIsValidAmount] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponError, setCouponError] = useState('');
 
-  // Debug auth state
+  // Set default payment method to first supported token when tokens are loaded
+  useEffect(() => {
+    if (supportedTokens && supportedTokens.length > 0 && !selectedMethod) {
+      setSelectedMethod(supportedTokens[0].symbol?.toLowerCase() || supportedTokens[0].name?.toLowerCase());
+    }
+  }, [supportedTokens, selectedMethod, setSelectedMethod]);
+
+  // Debug auth state and tokens
   useEffect(() => {
     console.log('Auth state in PaymentStep:', { isAuthenticated, actor: actor ? 'present' : 'undefined', principal: principal ? principal.toText() : 'undefined' });
-  }, [isAuthenticated, actor, principal]);
+    console.log('Supported tokens from canister:', supportedTokens);
+  }, [isAuthenticated, actor, principal, supportedTokens]);
 
   // Poll for auth state changes to handle async login delays
   useEffect(() => {
@@ -66,10 +92,88 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
     setIsValidAmount(!isNaN(num) && num > 0);
   }, [amount]);
 
-  const tokens = [
-    { id: 'icp', name: 'ICP', icon: CircleDollarSign, balance: balances?.ICP || 0 },
-    { id: 'btc', name: 'Bitcoin', icon: Bitcoin, balance: balances?.BTC || 0 },
-  ];
+  // Calculate final amount when amount or coupon changes
+  useEffect(() => {
+    const num = parseFloat(amount);
+    if (!isNaN(num) && num > 0) {
+      let finalAmt = num;
+      if (appliedCoupon) {
+        const discount = calculateDiscount(appliedCoupon.coupon_type, num);
+        finalAmt = Math.max(0, num - discount);
+      }
+      setFinalAmount(finalAmt);
+    } else {
+      setFinalAmount(0);
+    }
+  }, [amount, appliedCoupon, calculateDiscount, setFinalAmount]);
+
+  // Create tokens array from backend supported tokens with balances
+  const tokens = React.useMemo(() => {
+    if (!supportedTokens || supportedTokens.length === 0) {
+      // Return empty array if no tokens are available from canister
+      return [];
+    }
+
+    return supportedTokens
+      .filter(token => token.is_active !== false) // Only show active tokens
+      .map((token) => {
+        // Get the token's balance using symbol or name as key
+        const balanceKey = token.symbol || token.name;
+        const balance = balances?.[balanceKey] || balances?.[balanceKey.toUpperCase()] || 0;
+        
+        return {
+          id: (token.symbol || token.name || '').toLowerCase(),
+          name: token.name || token.symbol || 'Unknown',
+          symbol: token.symbol || token.name || 'UNK',
+          balance: balance,
+          canister_id: token.canister_id || token.canister,
+          decimals: token.decimals || 8,
+          fee: token.fee || 0,
+          logo: token.logo || null
+        };
+      });
+  }, [supportedTokens, balances]);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+
+    if (!isValidAmount) {
+      setCouponError('Please enter a valid amount first');
+      return;
+    }
+
+    setCouponError('');
+    
+    try {
+      const result = await validateCoupon(couponCode.trim(), parseFloat(amount), selectedMethod.toUpperCase());
+      
+      if (result.success) {
+        setAppliedCoupon({
+          code: couponCode.trim(),
+          coupon_id: result.coupon_id,
+          discount_amount: result.discount_amount,
+          coupon_type: { FixedAmount: result.discount_amount * 1e8 } // For display calculation
+        });
+        setCouponCode('');
+        setCouponError('');
+      } else {
+        setCouponError(result.error || 'Invalid coupon code');
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      setCouponError('Failed to validate coupon');
+      setAppliedCoupon(null);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError('');
+  };
 
   const handleConfirm = async () => {
     if (!isAuthenticated || !actor) {
@@ -83,13 +187,20 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
     setIsProcessing(true);
     setError(null);
     try {
-      const amountE8s = BigInt(Math.floor(parseFloat(amount) * 1e8));
-      const result = await buyItem(amountE8s, selectedMethod);
+      const amountE8s = BigInt(Math.floor(finalAmount * 1e8));
+      const result = await buyItem(amountE8s, selectedMethod, { coupon: appliedCoupon });
       setTransactionId(result?.transactionId || '0x' + Math.random().toString(16).slice(2, 10));
       console.log('Payment successful - advancing to success');
       handleNextStep();
       if (props.onPayment) {
-        props.onPayment({ success: true, transactionId: result?.transactionId, amount, currency: selectedMethod });
+        props.onPayment({ 
+          success: true, 
+          transactionId: result?.transactionId, 
+          amount: finalAmount, 
+          originalAmount: parseFloat(amount),
+          currency: selectedMethod,
+          coupon: appliedCoupon
+        });
       }
     } catch (err) {
       setError('Payment failed: ' + err.message);
@@ -130,10 +241,22 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className="w-full p-6"
+      style={dynamicStyles}
     >
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-foreground mb-2">Make a Payment</h2>
-        <p className="text-muted-foreground">Authenticate and complete your payment</p>
+        {branding?.logo_url && (
+          <img 
+            src={branding.logo_url} 
+            alt={branding.company_name || 'Company Logo'} 
+            className="w-16 h-16 mx-auto mb-4 object-contain"
+          />
+        )}
+        <h2 className="text-3xl font-bold mb-2" style={{ color: theme?.text_color || '#1f2937', fontFamily: theme?.font_family || 'inherit' }}>
+          Make a Payment
+        </h2>
+        <p className="text-muted-foreground">
+          {branding?.company_name ? `Pay ${branding.company_name}` : 'Authenticate and complete your payment'}
+        </p>
       </div>
 
       {!isAuthenticated ? (
@@ -143,7 +266,12 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleLogin}
-            className="w-full py-4 px-6 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-medium shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center group"
+            className="w-full py-4 px-6 text-white rounded-xl font-medium shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center group"
+            style={{ 
+              background: `linear-gradient(to right, ${theme?.primary_color || '#3b82f6'}, ${theme?.primary_color || '#3b82f6'})`,
+              borderRadius: `${theme?.border_radius || 8}px`,
+              fontFamily: theme?.font_family || 'inherit'
+            }}
           >
             <CircleDollarSign className="mr-3 h-5 w-5 group-hover:rotate-12 transition-transform" />
             Login with Internet Identity
@@ -188,8 +316,21 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
 
           <div className="mb-8">
             <h3 className="text-xl font-medium text-foreground mb-4">Select Payment Method</h3>
+            {/* Debug info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
+                <div>Supported tokens: {supportedTokens?.length || 0}</div>
+                <div>Processed tokens: {tokens?.length || 0}</div>
+                <div>Raw tokens: {JSON.stringify(supportedTokens?.slice(0, 2) || [])}</div>
+              </div>
+            )}
             <div className="space-y-3">
-              {tokens.map((token) => (
+              {tokens.length === 0 ? (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl text-center">
+                  <p className="text-yellow-700">No payment methods available. Please check your canister configuration.</p>
+                </div>
+              ) : (
+                tokens.map((token) => (
                 <motion.div 
                   key={token.id}
                   whileHover={{ scale: 1.01 }}
@@ -203,12 +344,14 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                        selectedMethod === token.id ? 'bg-primary/10' : 'bg-muted'
-                      }`}>
-                        <token.icon className={`w-5 h-5 ${
-                          selectedMethod === token.id ? 'text-primary' : 'text-muted-foreground'
-                        }`} />
+                      <div className="mr-3">
+                        <TokenIcon 
+                          tokenCanisterId={token.canister_id}
+                          size="w-10 h-10"
+                          className={`${
+                            selectedMethod === token.id ? 'ring-2 ring-primary ring-offset-2' : ''
+                          }`}
+                        />
                       </div>
                       <div>
                         <h4 className="font-medium text-foreground">{token.name}</h4>
@@ -224,8 +367,59 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
                     )}
                   </div>
                 </motion.div>
-              ))}
+                ))
+              )}
             </div>
+          </div>
+
+          {/* Coupon Code */}
+          <div className="mb-8">
+            <h3 className="text-xl font-medium text-foreground mb-4 flex items-center">
+              <Tag className="w-5 h-5 mr-2" />
+              Coupon Code
+            </h3>
+            {!appliedCoupon ? (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code"
+                    className="flex-1 py-2 px-4 bg-muted/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent"
+                    disabled={validatingCoupon}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleApplyCoupon}
+                    disabled={validatingCoupon || !couponCode.trim()}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {validatingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Apply'}
+                  </motion.button>
+                </div>
+                {couponError && (
+                  <p className="text-red-500 text-sm">{couponError}</p>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                <div className="flex items-center">
+                  <Check className="w-5 h-5 text-green-500 mr-2" />
+                  <span className="text-green-700 font-medium">{appliedCoupon.code}</span>
+                  <span className="ml-2 text-green-600">
+                    - {appliedCoupon.discount_amount.toFixed(4)} {selectedMethod.toUpperCase()}
+                  </span>
+                </div>
+                <button
+                  onClick={handleRemoveCoupon}
+                  className="text-green-600 hover:text-green-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="mb-8">
@@ -243,6 +437,30 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
               </div>
             </div>
           </div>
+
+          {/* Order Summary */}
+          {isValidAmount && (
+            <div className="mb-8">
+              <h3 className="text-xl font-medium text-foreground mb-4">Order Summary</h3>
+              <div className="bg-muted/30 rounded-xl p-5 border border-border/50">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium text-foreground">{amount} {selectedMethod.toUpperCase()}</span>
+                </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between items-center py-2 text-green-600">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-{appliedCoupon.discount_amount.toFixed(4)} {selectedMethod.toUpperCase()}</span>
+                  </div>
+                )}
+                <hr className="my-3 border-border/20" />
+                <div className="flex justify-between items-center py-2 font-bold text-lg">
+                  <span className="text-foreground">Total</span>
+                  <span className="text-foreground">{finalAmount.toFixed(4)} {selectedMethod.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
@@ -262,11 +480,16 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
               whileTap={{ scale: 0.95 }}
               onClick={handleConfirm}
               disabled={isProcessing || !isValidAmount}
-              className={`flex-1 py-3 px-4 rounded-xl font-medium flex items-center justify-center group transition-all ${
+              className={`flex-1 py-3 px-4 font-medium flex items-center justify-center group transition-all ${
                 isProcessing || !isValidAmount
                   ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                  : 'bg-gradient-to-r from-primary to-accent text-white shadow-lg hover:shadow-primary/20'
+                  : 'text-white shadow-lg hover:shadow-primary/20'
               }`}
+              style={{
+                borderRadius: `${theme?.border_radius || 8}px`,
+                fontFamily: theme?.font_family || 'inherit',
+                background: isProcessing || !isValidAmount ? undefined : `linear-gradient(to right, ${theme?.primary_color || '#3b82f6'}, ${theme?.primary_color || '#3b82f6'})`
+              }}
             >
               {isProcessing ? 'Processing...' : 'Pay Now'}
               <ArrowRight className={`ml-2 h-5 w-5 ${!isProcessing && isValidAmount ? 'group-hover:translate-x-1 transition-transform' : ''}`} />
@@ -279,7 +502,7 @@ const PaymentStep = ({ handleNextStep, removePaymentModal, isAuthenticated, logi
 };
 
 const SuccessStep = ({ removePaymentModal }) => {
-  const { amount, selectedMethod, transactionId } = usePayment();
+  const { amount, selectedMethod, transactionId, appliedCoupon, finalAmount } = usePayment();
 
   return (
     <motion.div
@@ -306,8 +529,18 @@ const SuccessStep = ({ removePaymentModal }) => {
           <span className="font-mono text-sm text-foreground">{transactionId || 'N/A'}</span>
         </div>
         <div className="flex justify-between items-center py-3 border-b border-border/20">
-          <span className="text-muted-foreground">Amount</span>
+          <span className="text-muted-foreground">Original Amount</span>
           <span className="font-medium text-foreground">{amount} {selectedMethod.toUpperCase()}</span>
+        </div>
+        {appliedCoupon && (
+          <div className="flex justify-between items-center py-3 border-b border-border/20">
+            <span className="text-muted-foreground">Coupon Applied</span>
+            <span className="font-medium text-green-600">{appliedCoupon.code}</span>
+          </div>
+        )}
+        <div className="flex justify-between items-center py-3 border-b border-border/20">
+          <span className="text-muted-foreground">Amount Paid</span>
+          <span className="font-medium text-foreground">{finalAmount?.toFixed(4)} {selectedMethod.toUpperCase()}</span>
         </div>
         <div className="flex justify-between items-center pt-3">
           <span className="text-muted-foreground">Date</span>
@@ -368,6 +601,7 @@ const PaymentComponent = ({
   ...props 
 }) => {
   const { isAuthenticated, login, logout } = useAuth();
+  const { modalConfig, theme, branding, dynamicStyles } = useModalConfig();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const handleNextStep = () => {
@@ -411,7 +645,13 @@ const PaymentComponent = ({
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-background rounded-xl w-full max-w-md relative overflow-hidden shadow-xl border border-border/20"
+          className="w-full max-w-md relative overflow-hidden shadow-xl"
+          style={{
+            backgroundColor: theme?.background_color || '#ffffff',
+            borderRadius: `${theme?.border_radius || 8}px`,
+            fontFamily: theme?.font_family || 'inherit',
+            border: `1px solid ${theme?.primary_color || '#3b82f6'}20`
+          }}
         >
           <button
             onClick={removePaymentModal}
@@ -420,9 +660,10 @@ const PaymentComponent = ({
             <X className="h-6 w-6" />
           </button>
           
-          <div className="h-1.5 bg-muted overflow-hidden">
+          <div className="h-1.5 overflow-hidden" style={{ backgroundColor: `${theme?.primary_color || '#3b82f6'}20` }}>
             <motion.div
-              className="h-full bg-gradient-to-r from-primary to-accent"
+              className="h-full"
+              style={{ backgroundColor: theme?.primary_color || '#3b82f6' }}
               initial={{ width: 0 }}
               animate={{ width: `${(currentStepIndex / (activeSteps.length - 1)) * 100}%` }}
               transition={{ duration: 0.3 }}
@@ -449,6 +690,13 @@ let root = null;
 let options = {};
 
 const MyLibrary = {
+  setCanisterId: (canisterId) => {
+    console.log('Setting canister ID:', canisterId);
+    window.CKPAY_CANISTER_ID = canisterId;
+    window.CKPAY_USER_PAYMENT_CANISTER = canisterId;
+    return MyLibrary;
+  },
+  
   initialize: (containerId, opts) => {
     modalContainer = document.getElementById(containerId);
     if (!modalContainer) throw new Error("Could not find container element");
@@ -471,13 +719,15 @@ const MyLibrary = {
     root.render(
       <ErrorBoundary>
         <AuthProvider>
-          <WalletProvider>
-            <PaymentComponent 
-              {...props} 
-              onPayment={onPayment} 
-              removePaymentModal={MyLibrary.removePaymentModal}
-            />
-          </WalletProvider>
+          <UserPaymentCanisterProvider>
+            <WalletProvider>
+              <PaymentComponent 
+                {...props} 
+                onPayment={onPayment} 
+                removePaymentModal={MyLibrary.removePaymentModal}
+              />
+            </WalletProvider>
+          </UserPaymentCanisterProvider>
         </AuthProvider>
       </ErrorBoundary>
     );
@@ -486,12 +736,7 @@ const MyLibrary = {
   removePaymentModal: () => {
     if (!modalContainer || !root) throw new Error("You must initialize MyLibrary first");
     root.render(null);
-  },
-  
-  addItem,
-  addProfile,
-  buyItem,
-  getItem
+  }
 };
 
 // Expose MyLibrary as ckPaySDK.PaymentComponent

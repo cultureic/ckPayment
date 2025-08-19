@@ -1,0 +1,152 @@
+.ckpay-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.ckpay-modal-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ckpay-modal-content {
+  background-color: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.ckpay-modal-overlay.visible .ckpay-modal-content {
+  transform: translateY(0);
+}
+
+.ckpay-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 1.5rem 0 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+}
+
+.ckpay-modal-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.ckpay-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+  padding: 0.25rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.ckpay-modal-close:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.ckpay-modal-body {
+  padding: 0 1.5rem;
+}
+
+.ckpay-modal-body .ckpay-payment-form {
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ckpay-modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+  margin-top: 1.5rem;
+  background-color: #f8f9fa;
+}
+
+.ckpay-metadata h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1rem;
+}
+
+.ckpay-metadata-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.ckpay-metadata-item:last-child {
+  border-bottom: none;
+}
+
+.ckpay-metadata-key {
+  font-weight: 600;
+  color: #555;
+}
+
+.ckpay-metadata-value {
+  color: #333;
+  text-align: right;
+  max-width: 60%;
+  word-break: break-word;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .ckpay-modal-content {
+    width: 95%;
+    margin: 1rem;
+    max-height: 90vh;
+  }
+
+  .ckpay-modal-header {
+    padding: 1rem 1rem 0 1rem;
+  }
+
+  .ckpay-modal-body {
+    padding: 0 1rem;
+  }
+
+  .ckpay-modal-footer {
+    padding: 1rem;
+  }
+
+  .ckpay-metadata-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .ckpay-metadata-value {
+    text-align: left;
+    max-width: 100%;
+  }
+}

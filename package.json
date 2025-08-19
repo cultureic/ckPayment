@@ -10,11 +10,12 @@
   ],
   "scripts": {
     "build": "webpack",
+    "build:sdk": "webpack --config webpack.sdk.config.js",
     "deploy:frontend_app-ic": "npm run public-dids && dfx deploy payment_frontend  --network=ic",
     "deploy:payment_app-ic": "npm run public-dids && dfx deploy payment_backend && dfx deploy payment_frontend  --network=ic && dfx deploy internet_identity --network=ic",
     "start-webpack": "webpack serve --mode development --env development",
     "start": "npm run replica && npm run private-dids && npm run deploy",
-    "replica": "dfx stop && rm -rf .dfx && dfx start --clean --background && dfx canister create ckbtc_ledger && dfx canister create payment_backend && dfx canister create payment_frontend && dfx canister create internet_identity",
+    "replica": "dfx stop && rm -rf .dfx && dfx canister create ckbtc_ledger && dfx canister create payment_backend && dfx canister create payment_frontend && dfx canister create internet_identity",
     "deploy": "npm run deploy:ledger && npm run deploy:payment_app",
     "public-dids": "perl -i -pe 's|icrc1\\.did|icrc1\\.public\\.did|g' dfx.json",
     "private-dids": "perl -i -pe 's|icrc1\\.public\\.did|icrc1\\.did|g' dfx.json",

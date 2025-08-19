@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SDK Test</title>
+  <script src="./ckPayment-web3/dist/ckPay.js"></script>
+</head>
+<body>
+  <div id="payment-modal"></div>
+  <button onclick="testSDK()">Test SDK</button>
+  <button onclick="startPaymentFlow()">Start Payment</button>
+
+<script>
+  function testSDK() {
+    console.log('Testing SDK...');
+    console.log('window.ckPaySDK:', window.ckPaySDK);
+    console.log('ckPaySDK:', typeof ckPaySDK !== 'undefined' ? ckPaySDK : 'undefined');
+    
+    if (typeof ckPaySDK !== 'undefined') {
+      console.log('ckPaySDK.PaymentComponent:', ckPaySDK.PaymentComponent);
+      console.log('setCanisterId method:', ckPaySDK.PaymentComponent.setCanisterId);
+    }
+  }
+
+  function startPaymentFlow() {
+    try {
+      console.log('Starting payment flow...');
+      
+      // 1. Set canister ID
+      ckPaySDK.PaymentComponent.setCanisterId('6tzcr-tqaaa-aaaag-aufoa-cai');
+
+      // 2. Initialize
+      ckPaySDK.PaymentComponent.initialize('payment-modal');
+
+      // 3. Show payment modal
+      ckPaySDK.PaymentComponent.renderPaymentModal({
+        amount: 100000,
+        description: 'My Product'
+      }, function(result) {
+        console.log('Payment result:', result);
+        if (result.success) {
+          alert('Payment successful! TX: ' + result.transactionId);
+        } else {
+          alert('Payment failed: ' + result.error);
+        }
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error: ' + error.message);
+    }
+  }
+
+  // Test immediately when page loads
+  window.addEventListener('load', function() {
+    console.log('Page loaded, testing SDK availability...');
+    testSDK();
+  });
+</script>
+</body>
+</html>

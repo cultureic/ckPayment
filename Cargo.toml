@@ -1,4 +1,17 @@
 [workspace]
+resolver = "2"
 members = [
-    "src/icEth"
+    "src/payment_backend",
+    "src/user_payment_canister",
 ]
+
+[workspace.dependencies]
+ic-cdk = "0.17.1"
+ic-stable-structures = "0.6.5"
+candid = "0.10.11"
+serde = { version = "1.0.209", features = ["derive"] }
+ic-cdk-timers = "0.11.0"
+ic-management-canister-types = { git = "https://github.com/dfinity/ic/", rev = "bc83b42ae2b8c8246e6387731910842a12ebee90" }
+ic-base-types = { git = "https://github.com/dfinity/ic/", rev = "bc83b42ae2b8c8246e6387731910842a12ebee90" }
+icrc-ledger-types = { git = "https://github.com/dfinity/ic/", rev = "bc83b42ae2b8c8246e6387731910842a12ebee90" }
+icrc-ledger-client-cdk = { git = "https://github.com/dfinity/ic/", rev = "bc83b42ae2b8c8246e6387731910842a12ebee90" }

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ckPay SDK - Dynamic Theming Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #2563eb;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .config-display {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ckPay SDK - Dynamic Theming Test</h1>
+        
+        <div class="info">
+            <strong>Test Information:</strong><br>
+            This page tests the dynamic theming functionality of the ckPay SDK. 
+            It demonstrates how modal configurations from the user payment canister 
+            can customize the appearance of payment and subscription modals.
+        </div>
+
+        <div class="test-section">
+            <h2>🎨 Theme Configuration Tests</h2>
+            <p>Test different theme configurations and see how they affect modal appearance.</p>
+            
+            <button class="test-button" onclick="testDefaultTheme()">
+                Default Theme
+            </button>
+            <button class="test-button" onclick="testCustomTheme()">
+                Custom Theme (Purple)
+            </button>
+            <button class="test-button" onclick="testDarkTheme()">
+                Dark Theme
+            </button>
+            <button class="test-button" onclick="testBrandedTheme()">
+                Branded Theme
+            </button>
+
+            <div id="theme-status" class="status info">
+                Click a theme button to test different configurations
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>💳 Payment Modal Tests</h2>
+            <p>Test payment modals with different configurations.</p>
+            
+            <button class="test-button" onclick="openPaymentModal()">
+                Open Payment Modal
+            </button>
+            <button class="test-button" onclick="openPaymentModalCustom()">
+                Payment with Custom Config
+            </button>
+
+            <div id="payment-status" class="status info">
+                Ready to test payment modals
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📅 Subscription Modal Tests</h2>
+            <p>Test subscription modals with different configurations.</p>
+            
+            <button class="test-button" onclick="openSubscriptionModal()">
+                Open Subscription Modal
+            </button>
+            <button class="test-button" onclick="openSubscriptionModalCustom()">
+                Subscription with Custom Config
+            </button>
+
+            <div id="subscription-status" class="status info">
+                Ready to test subscription modals
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔧 Configuration Inspector</h2>
+            <p>View the current modal configuration being used.</p>
+            
+            <button class="test-button" onclick="inspectConfig()">
+                Inspect Current Config
+            </button>
+            <button class="test-button" onclick="testTokenMapping()">
+                Test Token Mapping
+            </button>
+
+            <div id="config-display" class="config-display">
+                Click "Inspect Current Config" to view configuration data
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="ckpay-modal-container"></div>
+
+    <script>
+        // Mock canister ID for testing
+        const TEST_CANISTER_ID = 'test-canister-id';
+        
+        // Initialize SDK
+        if (typeof ckPaySDK !== 'undefined') {
+            ckPaySDK.PaymentComponent.setCanisterId(TEST_CANISTER_ID);
+            ckPaySDK.PaymentComponent.initialize('ckpay-modal-container');
+            
+            if (ckPaySDK.SubscriptionComponent) {
+                ckPaySDK.SubscriptionComponent.setCanisterId(TEST_CANISTER_ID);
+                ckPaySDK.SubscriptionComponent.initialize('ckpay-modal-container');
+            }
+        }
+
+        // Theme configurations for testing
+        const themes = {
+            default: {
+                primary_color: '#3b82f6',
+                background_color: '#ffffff',
+                text_color: '#1f2937',
+                border_radius: 8,
+                font_family: 'Inter, sans-serif'
+            },
+            purple: {
+                primary_color: '#8b5cf6',
+                background_color: '#faf7ff',
+                text_color: '#4c1d95',
+                border_radius: 12,
+                font_family: 'Space Grotesk, sans-serif'
+            },
+            dark: {
+                primary_color: '#f59e0b',
+                background_color: '#1f2937',
+                text_color: '#f9fafb',
+                border_radius: 6,
+                font_family: 'JetBrains Mono, monospace'
+            },
+            branded: {
+                primary_color: '#ef4444',
+                background_color: '#fff7ed',
+                text_color: '#7c2d12',
+                border_radius: 16,
+                font_family: 'Poppins, sans-serif'
+            }
+        };
+
+        // Mock modal configurations
+        function getMockModalConfig(themeName = 'default') {
+            const theme = themes[themeName];
+            return {
+                modal_id: `test_modal_${themeName}`,
+                name: `Test ${themeName} Modal`,
+                description: `Testing ${themeName} theme configuration`,
+                theme: theme,
+                payment_options: {
+                    allowed_tokens: ['ICP', 'BTC', 'ETH'],
+                    require_email: false,
+                    require_shipping: false,
+                    show_amount_breakdown: true,
+                    enable_tips: false
+                },
+                branding: {
+                    logo_url: 'https://via.placeholder.com/64x64/3b82f6/ffffff?text=CK',
+                    company_name: `Test Company (${themeName})`,
+                    support_url: 'https://example.com/support',
+                    terms_url: 'https://example.com/terms'
+                },
+                redirect_urls: {
+                    success_url: 'https://example.com/success',
+                    cancel_url: 'https://example.com/cancel',
+                    webhook_url: 'https://example.com/webhook'
+                },
+                template_id: null,
+                is_active: true
+            };
+        }
+
+        // Test functions
+        function testDefaultTheme() {
+            updateStatus('theme-status', 'Testing default theme...', 'info');
+            const config = getMockModalConfig('default');
+            displayConfig(config);
+            updateStatus('theme-status', 'Default theme configuration loaded', 'success');
+        }
+
+        function testCustomTheme() {
+            updateStatus('theme-status', 'Testing custom purple theme...', 'info');
+            const config = getMockModalConfig('purple');
+            displayConfig(config);
+            updateStatus('theme-status', 'Custom purple theme configuration loaded', 'success');
+        }
+
+        function testDarkTheme() {
+            updateStatus('theme-status', 'Testing dark theme...', 'info');
+            const config = getMockModalConfig('dark');
+            displayConfig(config);
+            updateStatus('theme-status', 'Dark theme configuration loaded', 'success');
+        }
+
+        function testBrandedTheme() {
+            updateStatus('theme-status', 'Testing branded theme...', 'info');
+            const config = getMockModalConfig('branded');
+            displayConfig(config);
+            updateStatus('theme-status', 'Branded theme configuration loaded', 'success');
+        }
+
+        function openPaymentModal() {
+            updateStatus('payment-status', 'Opening payment modal...', 'info');
+            try {
+                if (typeof ckPaySDK !== 'undefined' && ckPaySDK.PaymentComponent) {
+                    ckPaySDK.PaymentComponent.renderPaymentModal({}, (result) => {
+                        if (result.success) {
+                            updateStatus('payment-status', 'Payment completed successfully!', 'success');
+                        } else {
+                            updateStatus('payment-status', `Payment failed: ${result.error}`, 'error');
+                        }
+                    });
+                } else {
+                    throw new Error('ckPaySDK not loaded');
+                }
+            } catch (error) {
+                updateStatus('payment-status', `Error opening payment modal: ${error.message}`, 'error');
+            }
+        }
+
+        function openPaymentModalCustom() {
+            updateStatus('payment-status', 'Opening payment modal with custom config...', 'info');
+            try {
+                if (typeof ckPaySDK !== 'undefined' && ckPaySDK.PaymentComponent) {
+                    const customProps = {
+                        modalConfig: getMockModalConfig('purple')
+                    };
+                    ckPaySDK.PaymentComponent.renderPaymentModal(customProps, (result) => {
+                        if (result.success) {
+                            updateStatus('payment-status', 'Custom payment completed successfully!', 'success');
+                        } else {
+                            updateStatus('payment-status', `Custom payment failed: ${result.error}`, 'error');
+                        }
+                    });
+                } else {
+                    throw new Error('ckPaySDK not loaded');
+                }
+            } catch (error) {
+                updateStatus('payment-status', `Error opening custom payment modal: ${error.message}`, 'error');
+            }
+        }
+
+        function openSubscriptionModal() {
+            updateStatus('subscription-status', 'Opening subscription modal...', 'info');
+            try {
+                if (typeof ckPaySDK !== 'undefined' && ckPaySDK.SubscriptionComponent) {
+                    ckPaySDK.SubscriptionComponent.renderSubscriptionModal({}, (result) => {
+                        if (result.success) {
+                            updateStatus('subscription-status', 'Subscription completed successfully!', 'success');
+                        } else {
+                            updateStatus('subscription-status', `Subscription failed: ${result.error}`, 'error');
+                        }
+                    });
+                } else {
+                    throw new Error('ckPaySDK Subscription component not loaded');
+                }
+            } catch (error) {
+                updateStatus('subscription-status', `Error opening subscription modal: ${error.message}`, 'error');
+            }
+        }
+
+        function openSubscriptionModalCustom() {
+            updateStatus('subscription-status', 'Opening subscription modal with custom config...', 'info');
+            try {
+                if (typeof ckPaySDK !== 'undefined' && ckPaySDK.SubscriptionComponent) {
+                    const customProps = {
+                        modalConfig: getMockModalConfig('dark')
+                    };
+                    ckPaySDK.SubscriptionComponent.renderSubscriptionModal(customProps, (result) => {
+                        if (result.success) {
+                            updateStatus('subscription-status', 'Custom subscription completed successfully!', 'success');
+                        } else {
+                            updateStatus('subscription-status', `Custom subscription failed: ${result.error}`, 'error');
+                        }
+                    });
+                } else {
+                    throw new Error('ckPaySDK Subscription component not loaded');
+                }
+            } catch (error) {
+                updateStatus('subscription-status', `Error opening custom subscription modal: ${error.message}`, 'error');
+            }
+        }
+
+        function inspectConfig() {
+            const config = getMockModalConfig('default');
+            displayConfig(config);
+        }
+
+        function testTokenMapping() {
+            const mockTokens = [
+                {
+                    id: 'icp',
+                    name: 'Internet Computer',
+                    symbol: 'ICP',
+                    canister_id: 'ryjl3-tyaaa-aaaaa-aaaba-cai',
+                    decimals: 8,
+                    fee: 10000,
+                    logo: null,
+                    is_active: true
+                },
+                {
+                    id: 'btc',
+                    name: 'Bitcoin',
+                    symbol: 'BTC', 
+                    canister_id: 'mxzaz-hqaaa-aaaar-qaada-cai',
+                    decimals: 8,
+                    fee: 1000,
+                    logo: null,
+                    is_active: true
+                }
+            ];
+            
+            displayConfig({
+                message: 'Mock supported tokens from canister',
+                tokens: mockTokens
+            });
+        }
+
+        // Utility functions
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function displayConfig(config) {
+            const element = document.getElementById('config-display');
+            element.textContent = JSON.stringify(config, null, 2);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof ckPaySDK === 'undefined') {
+                updateStatus('theme-status', 'Warning: ckPaySDK not loaded. Please include the SDK script.', 'error');
+                updateStatus('payment-status', 'ckPaySDK not available', 'error');
+                updateStatus('subscription-status', 'ckPaySDK not available', 'error');
+            } else {
+                updateStatus('theme-status', 'SDK loaded successfully. Ready for testing.', 'success');
+                updateStatus('payment-status', 'SDK loaded successfully. Ready for testing.', 'success');
+                updateStatus('subscription-status', 'SDK loaded successfully. Ready for testing.', 'success');
+            }
+        });
+    </script>
+</body>
+</html>

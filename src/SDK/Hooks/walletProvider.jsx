@@ -5,49 +5,71 @@ import { createicrc1Actor } from "../ic/icpswap/icrc1/index.js";
 import tokensConfig from "./tokens.json"; // Import JSON configurations
 import { defaultIcrcTransferArgs, toDefaultSub } from "../utils/index.js";
 import { Principal } from "@dfinity/principal";
+import { useUserPaymentCanisterContext } from "./userPaymentCanisterProvider.jsx";
+
+// User Payment Canister ID
 
 const TokenContext = createContext(null);
 
-
 export const useTokenClient = () => {
-  const { identity, principal, isAuth } = useAuth();
+  const { identity, principal, isAuthenticated } = useAuth();
   const [balances, setBalances] = useState(null);
+  
+  // Use the user payment canister context instead of creating our own
+  const { 
+    supportedTokens = [], 
+    userPaymentService, 
+    canisterId: userPaymentCanisterId,
+    transferToken: userPaymentTransfer,
+    getSupportedTokensFromCanister 
+  } = useUserPaymentCanisterContext()
 
-  useEffect(() => {
-    if (isAuth) {
-      getBalances();
-    }
-  }, [principal, identity]);
+
+  useEffect(()=>{
+    if (!isAuthenticated) return;
+    console.log("supportd tokns",supportedTokens);
+    // Initial fetch
+    getBalances();
+    console.log("balances", balances);
+  },[supportedTokens])
+
   useEffect(() => {
     console.log("balances", balances);
   }, [balances]);
 
   useEffect(() => {
-  if (!isAuth) return;
+    if (!isAuthenticated) return;
 
-  // Initial fetch
-  getBalances();
-
-  // Poll every 5 seconds
-  const interval = setInterval(() => {
+    // Initial fetch
     getBalances();
-  }, 5000);
 
-  // Cleanup on unmount or when isAuth changes
-  return () => clearInterval(interval);
-}, [isAuth, principal, identity]);
+    // Poll every 5 seconds
+    const interval = setInterval(() => {
+      getBalances();
+    }, 5000);
 
+    // Cleanup on unmount or when isAuthenticated changes
+    return () => clearInterval(interval);
+  }, [isAuthenticated, principal, identity, supportedTokens]);
 
   async function getBalances() {
     console.log("Fetching balances...");
     let balancesData = {};
+    
+    // Use supported tokens if available, otherwise fallback to tokensConfig
+    const tokensToUse = supportedTokens.length > 0 ? supportedTokens : tokensConfig.tokens;
 
-    for (const token of tokensConfig.tokens) {
-      let actor = createicrc1Actor(token.canister, {
-        agentOptions: { identity },
-      });
-      let balance = await actor.icrc1_balance_of(toDefaultSub(principal));
-      balancesData[token.name] = e8sToNumber(balance);
+    for (const token of tokensToUse) {
+      try {
+        let actor = createicrc1Actor(token.canister, {
+          agentOptions: { identity  },
+        });
+        let balance = await actor.icrc1_balance_of(toDefaultSub(principal));
+        balancesData[token.name] = e8sToNumber(balance);
+      } catch (error) {
+        console.error(`Failed to get balance for ${token.name}:`, error);
+        balancesData[token.name] = 0;
+      }
     }
 
     setBalances(balancesData);
@@ -68,7 +90,9 @@ export const useTokenClient = () => {
   
 
   async function transferTokenAccount(tokenName, amount,to) {
-    const token = tokensConfig.tokens.find((t) => t.name === tokenName);
+    // Use supported tokens if available, otherwise fallback to tokensConfig
+    const tokensToUse = supportedTokens.length > 0 ? supportedTokens : tokensConfig.tokens;
+    const token = tokensToUse.find((t) => t.name === tokenName);
     if (!token) {
       console.error(`Token ${tokenName} not found`);
       return;
@@ -99,7 +123,9 @@ export const useTokenClient = () => {
   }
 
   async function transferToken(tokenName, amount,to) {
-    const token = tokensConfig.tokens.find((t) => t.name === tokenName);
+    // Use supported tokens if available, otherwise fallback to tokensConfig
+    const tokensToUse = supportedTokens.length > 0 ? supportedTokens : tokensConfig.tokens;
+    const token = tokensToUse.find((t) => t.name === tokenName);
     if (!token) {
       console.error(`Token ${tokenName} not found`);
       return;
@@ -118,9 +144,12 @@ export const useTokenClient = () => {
   return {
     identity,
     balances,
+    supportedTokens,
+    userPaymentService,
     transferToken,
     transferTokenAccount,
-    getBalances
+    getBalances,
+    getSupportedTokensFromCanister
   };
 };
 

@@ -4,5 +4,8 @@
   },
   "payment_frontend": {
     "ic": "zkg6o-xiaaa-aaaag-acofa-cai"
+  },
+  "user_payment_canister": {
+    "ic": "6uyef-6iaaa-aaaag-aufoq-cai"
   }
 }
