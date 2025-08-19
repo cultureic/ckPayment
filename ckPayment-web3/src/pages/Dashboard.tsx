@@ -15,7 +15,8 @@ import {
   Factory,
   Code,
   Tag,
-  CreditCard
+  CreditCard,
+  Package
 } from 'lucide-react';
 import { useAuth, withAuth, UserInfo, LogoutButton } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
@@ -27,13 +28,14 @@ import {
   DashboardProps, 
   DashboardTab
 } from '@/types/dashboard';
-import { useICPData } from '@/hooks/useICPData';
+import { useDashboardData } from '@/hooks/useDashboardData';
 import MetricsGrid from '@/components/dashboard/MetricsGrid';
 import AnimatedBackground from '@/components/AnimatedBackground';
 import { FactoryTab } from '@/components/factory/FactoryTab';
 import ModalBuilderTab from '@/components/modal/ModalBuilderTab';
 import { DiscountTab } from '@/components/discount/DiscountTab';
 import SubscriptionTab from '@/components/subscription/SubscriptionTab';
+import { ProductTab } from '@/components/product/ProductTab';
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   defaultTab = 'analytics',
@@ -46,30 +48,38 @@ const Dashboard: React.FC<DashboardProps> = ({
   // State Management
   const [activeTab, setActiveTab] = useState<DashboardTab>(defaultTab);
   
-  // Data Management Hook
+  // Comprehensive Data Management Hook - loads ALL tab data upfront
   const {
-    data,
-    metrics,
+    allData,
+    analytics,
     config,
     webhooks,
+    tokens,
+    modals,
+    discounts,
+    subscriptions,
+    subscriptionPlans,
+    products,
+    userCanisters,
+    selectedCanister,
     isLoading,
     isRefreshing,
     error,
     hasError,
     refetch,
     clearError,
+    selectCanister,
     lastRefresh,
     isUsingMockData,
     connectionStatus
-  } = useICPData({
-    canisterId,
+  } = useDashboardData({
     refreshInterval,
     enableAutoRefresh: true,
     fallbackToMock: true
   });
 
   // Loading State - only show main loading when we have no data at all
-  if (isLoading && !data) {
+  if (isLoading && !allData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -108,6 +118,13 @@ const Dashboard: React.FC<DashboardProps> = ({
               {principal && (
                 <Badge variant="outline" className="text-xs">
                   {principal.slice(0, 8)}...{principal.slice(-4)}
+                </Badge>
+              )}
+              
+              {/* Selected Canister Info */}
+              {selectedCanister && (
+                <Badge variant="secondary" className="text-xs">
+                  {selectedCanister.name || 'Payment Canister'}
                 </Badge>
               )}
               
@@ -198,7 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           {/* Tabs Navigation */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
-            <TabsList className="grid w-full grid-cols-7 lg:w-[850px]">
+            <TabsList className="grid w-full grid-cols-8 lg:w-[1000px]">
               <TabsTrigger value="analytics" className="flex items-center space-x-2">
                 <BarChart3 className="h-4 w-4" />
                 <span>Analytics</span>
@@ -227,20 +244,24 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <CreditCard className="h-4 w-4" />
                 <span>Subscriptions</span>
               </TabsTrigger>
+              <TabsTrigger value="products" className="flex items-center space-x-2">
+                <Package className="h-4 w-4" />
+                <span>Products</span>
+              </TabsTrigger>
             </TabsList>
 
             {/* Tab Content */}
             <div className="mt-8">
             <TabsContent value="analytics">
                 <Card className="p-6">
-                  {isLoading && !metrics ? (
+                  {isLoading && !analytics ? (
                     <div className="text-center py-12">
                       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
                       <p className="text-muted-foreground">Loading analytics...</p>
                     </div>
-                  ) : metrics ? (
+                  ) : analytics ? (
                     <MetricsGrid 
-                      metrics={metrics}
+                      metrics={analytics}
                       loading={isRefreshing}
                       error={hasError}
                       lastUpdated={lastRefresh}
@@ -387,19 +408,45 @@ const Dashboard: React.FC<DashboardProps> = ({
               </TabsContent>
 
               <TabsContent value="modals">
-                <ModalBuilderTab />
+                <ModalBuilderTab 
+                  modals={modals || []} 
+                  selectedCanister={selectedCanister}
+                  isLoading={isRefreshing}
+                />
               </TabsContent>
 
               <TabsContent value="factory">
-                <FactoryTab />
+                <FactoryTab 
+                  userCanisters={userCanisters || []}
+                  tokens={tokens || []}
+                  selectedCanister={selectedCanister}
+                  onCanisterSelect={selectCanister}
+                />
               </TabsContent>
 
               <TabsContent value="discounts">
-                <DiscountTab />
+                <DiscountTab 
+                  coupons={discounts || []}
+                  selectedCanister={selectedCanister}
+                  isLoading={isRefreshing}
+                />
               </TabsContent>
 
               <TabsContent value="subscriptions">
-                <SubscriptionTab />
+                <SubscriptionTab 
+                  subscriptions={subscriptions || []}
+                  subscriptionPlans={subscriptionPlans || []}
+                  selectedCanister={selectedCanister}
+                  isLoading={isRefreshing}
+                />
+              </TabsContent>
+
+              <TabsContent value="products">
+                <ProductTab 
+                  products={products || []}
+                  selectedCanister={selectedCanister}
+                  isLoading={isRefreshing}
+                />
               </TabsContent>
             </div>
           </Tabs>

@@ -31,7 +31,19 @@ import { useFactory } from '@/hooks/useFactory';
 import { useAuth } from '@/hooks/useAuth';
 import userPaymentService from '@/services/user-payment-service';
 
-export function FactoryTab() {
+interface FactoryTabProps {
+  userCanisters?: any[];
+  tokens?: any[];
+  selectedCanister?: any;
+  onCanisterSelect?: (canisterId: string) => void;
+}
+
+export function FactoryTab({ 
+  userCanisters: propUserCanisters,
+  tokens: propTokens,
+  selectedCanister: propSelectedCanister,
+  onCanisterSelect 
+}: FactoryTabProps = {}) {
   const {
     data,
     isLoading,
