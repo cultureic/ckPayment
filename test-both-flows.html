@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ckPaySDK - Payment & Subscription Flows Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .button {
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-white mb-4">ckPaySDK Payment Flows</h1>
+            <p class="text-xl text-white/80">Test both one-time payments and subscription payments with coupon functionality</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 mb-8">
+            <!-- One-time Payment Card -->
+            <div class="card rounded-2xl p-8 shadow-xl">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">One-time Payment</h2>
+                    <p class="text-gray-600">Make a single payment with optional coupon discount</p>
+                </div>
+
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Flexible amount input
+                    </div>
+                    <div class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Multiple token support
+                    </div>
+                    <div class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Coupon code discounts
+                    </div>
+                </div>
+
+                <button id="paymentBtn" class="button w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl">
+                    Open Payment Modal
+                </button>
+            </div>
+
+            <!-- Subscription Payment Card -->
+            <div class="card rounded-2xl p-8 shadow-xl">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Subscription Payment</h2>
+                    <p class="text-gray-600">Choose a subscription plan with recurring billing</p>
+                </div>
+
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Multiple subscription plans
+                    </div>
+                    <div class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Flexible billing intervals
+                    </div>
+                    <div class="flex items-center text-gray-600">
+                        <svg class="w-5 h-5 text-green-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Coupon discounts
+                    </div>
+                </div>
+
+                <button id="subscriptionBtn" class="button w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-xl">
+                    Open Subscription Modal
+                </button>
+            </div>
+        </div>
+
+        <!-- SDK Configuration -->
+        <div class="card rounded-2xl p-8 shadow-xl mb-8">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">SDK Configuration</h3>
+            <div class="grid md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Canister ID</label>
+                    <input id="canisterId" type="text" value="bkyz2-fmaaa-aaaah-qaaaq-cai" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Enter your canister ID">
+                </div>
+                <div class="flex items-end">
+                    <button id="setCanisterBtn" class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg button">
+                        Set Canister ID
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transaction Log -->
+        <div class="card rounded-2xl p-8 shadow-xl">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Transaction Log</h3>
+            <div id="transactionLog" class="space-y-3 min-h-[100px] max-h-[300px] overflow-y-auto">
+                <p class="text-gray-500 italic">No transactions yet...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal container -->
+    <div id="payment-modal-container"></div>
+
+    <!-- Load the SDK -->
+    <script src="./bundleSDK/cdkPay.js"></script>
+    <script>
+        console.log('ckPaySDK loaded:', window.ckPaySDK);
+
+        // Initialize the SDK
+        function initializeSDK() {
+            if (!window.ckPaySDK) {
+                console.error('ckPaySDK not found!');
+                return false;
+            }
+
+            try {
+                // Initialize with modal container
+                window.ckPaySDK.initialize('payment-modal-container');
+                console.log('SDK initialized successfully');
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize SDK:', error);
+                return false;
+            }
+        }
+
+        // Add transaction to log
+        function addTransactionLog(type, data) {
+            const logContainer = document.getElementById('transactionLog');
+            const logItem = document.createElement('div');
+            logItem.className = 'p-3 bg-gray-50 rounded-lg border-l-4 ' + (data.success ? 'border-green-500' : 'border-red-500');
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const status = data.success ? 'SUCCESS' : 'FAILED';
+            const statusColor = data.success ? 'text-green-600' : 'text-red-600';
+            
+            let details = '';
+            if (data.success) {
+                if (type === 'subscription' && data.subscription) {
+                    details = `<div class="text-sm text-gray-600">Plan: ${data.subscription.name} | Amount: ${data.amount} ${data.currency.toUpperCase()}</div>`;
+                    if (data.coupon) {
+                        details += `<div class="text-sm text-green-600">Coupon: ${data.coupon.code} applied</div>`;
+                    }
+                } else {
+                    details = `<div class="text-sm text-gray-600">Amount: ${data.amount} ${data.currency.toUpperCase()}</div>`;
+                    if (data.coupon) {
+                        details += `<div class="text-sm text-green-600">Coupon: ${data.coupon.code} applied</div>`;
+                    }
+                }
+                if (data.transactionId) {
+                    details += `<div class="text-xs text-gray-500 font-mono">TX: ${data.transactionId}</div>`;
+                }
+            } else {
+                details = `<div class="text-sm text-red-600">Error: ${data.error}</div>`;
+            }
+
+            logItem.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <span class="font-medium text-gray-800">${type.toUpperCase()} PAYMENT</span>
+                    <span class="text-xs text-gray-500">${timestamp}</span>
+                </div>
+                <div class="font-medium ${statusColor}">${status}</div>
+                ${details}
+            `;
+
+            // Remove "no transactions" message if it exists
+            const noTransMsg = logContainer.querySelector('.text-gray-500.italic');
+            if (noTransMsg) {
+                noTransMsg.remove();
+            }
+
+            logContainer.insertBefore(logItem, logContainer.firstChild);
+        }
+
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!initializeSDK()) {
+                alert('Failed to initialize ckPaySDK. Please check the console for errors.');
+                return;
+            }
+
+            // Set default canister ID
+            const canisterIdInput = document.getElementById('canisterId');
+            if (canisterIdInput.value) {
+                window.ckPaySDK.setCanisterId(canisterIdInput.value);
+            }
+
+            // Set Canister ID button
+            document.getElementById('setCanisterBtn').addEventListener('click', function() {
+                const canisterId = canisterIdInput.value.trim();
+                if (canisterId) {
+                    window.ckPaySDK.setCanisterId(canisterId);
+                    alert('Canister ID set to: ' + canisterId);
+                } else {
+                    alert('Please enter a canister ID');
+                }
+            });
+
+            // Payment Modal Button
+            document.getElementById('paymentBtn').addEventListener('click', function() {
+                console.log('Opening payment modal...');
+                window.ckPaySDK.renderPaymentModal({}, function(result) {
+                    console.log('Payment result:', result);
+                    addTransactionLog('payment', result);
+                });
+            });
+
+            // Subscription Modal Button
+            document.getElementById('subscriptionBtn').addEventListener('click', function() {
+                console.log('Opening subscription modal...');
+                window.ckPaySDK.renderSubscriptionModal({}, function(result) {
+                    console.log('Subscription result:', result);
+                    addTransactionLog('subscription', result);
+                });
+            });
+
+            console.log('Event listeners set up successfully');
+        });
+
+        // Handle SDK loading errors
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e);
+            if (e.message.includes('ckPaySDK') || e.filename.includes('cdkPay')) {
+                alert('Error loading ckPaySDK. Please check that the SDK file is available.');
+            }
+        });
+    </script>
+</body>
+</html>
