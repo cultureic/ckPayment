@@ -110,6 +110,34 @@ pub struct PaymentTransaction {
     pub timestamp: u64,
     pub status: TransactionStatus,
     pub metadata: Vec<(String, String)>,
+    pub payment_method: PaymentMethod,
+    pub block_index: Option<u64>, // Block index from ledger transaction
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum PaymentMethod {
+    Direct,        // Direct transfer
+    TransferFrom,  // Transfer from approved amount
+    Subscription,  // Subscription payment
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct PaymentRequest {
+    pub invoice_id: String,
+    pub amount: u64,
+    pub token_symbol: String,
+    pub coupon_code: Option<String>,
+    pub metadata: Vec<(String, String)>,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct PaymentResult {
+    pub transaction_id: String,
+    pub amount_paid: u64,
+    pub discount_applied: u64,
+    pub final_amount: u64,
+    pub block_index: Option<u64>,
+    pub payment_method: PaymentMethod,
 }
 
 #[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
@@ -276,6 +304,66 @@ pub struct CouponUsage {
 }
 
 impl Storable for CouponUsage {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+// ============================================================================
+// PRODUCT MANAGEMENT STRUCTURES
+// ============================================================================
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub enum ProductStatus {
+    Active,
+    Inactive,
+    OutOfStock,
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct Product {
+    pub product_id: String,
+    pub name: String,
+    pub description: String,
+    pub price: u64, // Price in token's smallest unit
+    pub token_symbol: String, // Token symbol (e.g., "ICP", "ckBTC")
+    pub category: Option<String>,
+    pub image_url: Option<String>,
+    pub status: ProductStatus,
+    pub inventory_count: Option<u32>, // None = unlimited inventory
+    pub metadata: Vec<(String, String)>, // Custom metadata key-value pairs
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+impl Storable for Product {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(Encode!(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        Decode!(bytes.as_ref(), Self).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Unbounded;
+}
+
+#[derive(CandidType, Deserialize, Serialize, Clone, Debug)]
+pub struct ProductSalesStats {
+    pub product_id: String,
+    pub total_sales: u64,
+    pub total_revenue: u64,
+    pub units_sold: u32,
+    pub last_sale_at: Option<u64>,
+}
+
+impl Storable for ProductSalesStats {
     fn to_bytes(&self) -> Cow<[u8]> {
         Cow::Owned(Encode!(self).unwrap())
     }
@@ -542,6 +630,57 @@ thread_local! {
     static NEXT_SUBSCRIPTION_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
         Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(16))), 1u64).unwrap()
     );
+
+    // Product Management storage (MemoryId 17, 18, 19)
+    static PRODUCTS: RefCell<StableBTreeMap<String, Product, Memory>> = RefCell::new(
+        {
+            let mut map = StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(17))));
+            
+            // Add default product priced at 1 ICP
+            let default_product = Product {
+                product_id: "product_1".to_string(),
+                name: "Default Product".to_string(),
+                description: "A default product for demonstration purposes".to_string(),
+                price: 100_000_000, // 1 ICP in e8s (ICP has 8 decimals)
+                token_symbol: "ICP".to_string(),
+                category: Some("General".to_string()),
+                image_url: None,
+                status: ProductStatus::Active,
+                inventory_count: None, // Unlimited inventory
+                metadata: vec![
+                    ("type".to_string(), "digital".to_string()),
+                    ("featured".to_string(), "true".to_string()),
+                ],
+                created_at: 0,
+                updated_at: 0,
+            };
+            
+            map.insert("product_1".to_string(), default_product);
+            map
+        }
+    );
+
+    static PRODUCT_SALES_STATS: RefCell<StableBTreeMap<String, ProductSalesStats, Memory>> = RefCell::new(
+        {
+            let mut map = StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(18))));
+            
+            // Add default product sales stats
+            let default_stats = ProductSalesStats {
+                product_id: "product_1".to_string(),
+                total_sales: 0,
+                total_revenue: 0,
+                units_sold: 0,
+                last_sale_at: None,
+            };
+            
+            map.insert("product_1".to_string(), default_stats);
+            map
+        }
+    );
+
+    static NEXT_PRODUCT_ID: RefCell<Cell<u64, Memory>> = RefCell::new(
+        Cell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(19))), 2u64).unwrap()
+    );
 }
 
 // ============================================================================
@@ -769,11 +908,15 @@ fn create_invoice(
     Ok(invoice)
 }
 
+// Enhanced process_payment with transferFrom support
 #[ic_cdk::update]
-async fn process_payment(invoice_id: String, from: Principal) -> Result<PaymentTransaction, String> {
+async fn process_payment_request(payment_request: PaymentRequest) -> Result<PaymentResult, String> {
+    let caller = ic_cdk::caller();
+    let current_time = ic_cdk::api::time();
+    
     // Get the invoice
     let mut invoice = INVOICES.with(|invoices| {
-        invoices.borrow().get(&invoice_id)
+        invoices.borrow().get(&payment_request.invoice_id)
     }).ok_or("Invoice not found")?;
 
     // Check if invoice is still valid
@@ -782,9 +925,38 @@ async fn process_payment(invoice_id: String, from: Principal) -> Result<PaymentT
     }
 
     if let Some(expires_at) = invoice.expires_at {
-        if ic_cdk::api::time() > expires_at {
+        if current_time > expires_at {
             return Err("Invoice expired".to_string());
         }
+    }
+
+    // Validate token
+    if invoice.token.symbol != payment_request.token_symbol {
+        return Err("Token mismatch".to_string());
+    }
+
+    let mut final_amount = payment_request.amount;
+    let mut discount_applied = 0u64;
+    let mut coupon_id: Option<String> = None;
+
+    // Process coupon if provided
+    if let Some(coupon_code) = payment_request.coupon_code {
+        match validate_and_use_coupon(coupon_code, payment_request.amount, payment_request.token_symbol.clone()) {
+            Ok((used_coupon_id, discount)) => {
+                discount_applied = discount;
+                final_amount = payment_request.amount.saturating_sub(discount);
+                coupon_id = Some(used_coupon_id);
+            },
+            Err(err) => {
+                // Log coupon error but don't fail the payment
+                ic_cdk::println!("Coupon validation failed: {}", err);
+            }
+        }
+    }
+
+    // Validate final amount
+    if final_amount < invoice.amount {
+        return Err("Payment amount insufficient after discount".to_string());
     }
 
     // Generate transaction ID
@@ -797,43 +969,113 @@ async fn process_payment(invoice_id: String, from: Principal) -> Result<PaymentT
     let owner = OWNER.with(|o| *o.borrow().get());
     let config = CONFIG.with(|c| c.borrow().get().clone());
 
-    // Calculate merchant fee
-    let merchant_fee = (invoice.amount * config.merchant_fee as u64) / 10000; // merchant_fee is in basis points
-    let net_amount = invoice.amount - merchant_fee;
+    // Calculate fees
+    let merchant_fee = (final_amount * config.merchant_fee as u64) / 10000;
+    let net_amount = final_amount.saturating_sub(merchant_fee);
 
-    // Here you would integrate with actual token transfer logic
-    // For now, we'll simulate the transfer
+    // Attempt transferFrom call
+    let transfer_result = transfer_from_token(
+        invoice.token.canister_id,
+        caller,
+        owner,
+        final_amount + invoice.token.fee, // Include token transfer fee
+    ).await;
+
+    let (status, block_index) = match transfer_result {
+        Ok(block_idx) => (TransactionStatus::Completed, Some(block_idx)),
+        Err(err) => {
+            ic_cdk::println!("Transfer failed: {}", err);
+            (TransactionStatus::Failed(err), None)
+        }
+    };
+
+    // Create transaction record with enhanced metadata
+    let mut metadata = payment_request.metadata;
+    if let Some(cid) = coupon_id {
+        metadata.push(("coupon_id".to_string(), cid));
+        metadata.push(("discount_applied".to_string(), discount_applied.to_string()));
+    }
+    metadata.push(("original_amount".to_string(), payment_request.amount.to_string()));
+    metadata.push(("final_amount".to_string(), final_amount.to_string()));
 
     let transaction = PaymentTransaction {
         id: transaction_id.clone(),
-        from,
+        from: caller,
         to: owner,
         token: invoice.token.clone(),
-        amount: invoice.amount,
+        amount: final_amount,
         fee: invoice.token.fee,
         merchant_fee,
-        timestamp: ic_cdk::api::time(),
-        status: TransactionStatus::Completed, // In real implementation, start as Pending
-        metadata: invoice.metadata.clone(),
+        timestamp: current_time,
+        status: status.clone(),
+        metadata,
+        payment_method: PaymentMethod::TransferFrom,
+        block_index,
     };
 
-    // Update invoice status
-    invoice.status = InvoiceStatus::Paid;
-    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice.clone()));
+    // Only update invoice and balances if payment succeeded
+    if matches!(status, TransactionStatus::Completed) {
+        // Update invoice status
+        invoice.status = InvoiceStatus::Paid;
+        INVOICES.with(|invoices| invoices.borrow_mut().insert(payment_request.invoice_id, invoice.clone()));
 
-    // Store transaction
+        // Update balance for successful payment
+        BALANCES.with(|balances| {
+            let mut map = balances.borrow_mut();
+            let current_balance = map.get(&invoice.token.symbol).unwrap_or(0);
+            map.insert(invoice.token.symbol.clone(), current_balance + net_amount);
+        });
+
+        // Track product sales if this is a product-based payment
+        if let Some(product_id) = invoice.metadata.iter().find(|(key, _)| key == "product_id").map(|(_, value)| value) {
+            update_product_sales_stats(product_id, final_amount);
+        }
+
+        // Track modal analytics if successful
+        track_payment_analytics(&invoice.token.symbol, final_amount);
+    }
+
+    // Store transaction regardless of status for analytics
     TRANSACTIONS.with(|transactions| {
-        transactions.borrow_mut().insert(transaction_id, transaction.clone())
+        transactions.borrow_mut().insert(transaction_id.clone(), transaction.clone())
     });
 
-    // Update balance
-    BALANCES.with(|balances| {
-        let mut map = balances.borrow_mut();
-        let current_balance = map.get(&invoice.token.symbol).unwrap_or(0);
-        map.insert(invoice.token.symbol.clone(), current_balance + net_amount);
-    });
+    // Return payment result
+    Ok(PaymentResult {
+        transaction_id,
+        amount_paid: payment_request.amount,
+        discount_applied,
+        final_amount,
+        block_index,
+        payment_method: PaymentMethod::TransferFrom,
+    })
+}
 
-    Ok(transaction)
+// Legacy process_payment method for backwards compatibility
+#[ic_cdk::update]
+async fn process_payment(invoice_id: String, _from: Principal) -> Result<PaymentTransaction, String> {
+    // Get the invoice for amount and token info
+    let invoice = INVOICES.with(|invoices| {
+        invoices.borrow().get(&invoice_id)
+    }).ok_or("Invoice not found")?;
+
+    // Create a payment request
+    let payment_request = PaymentRequest {
+        invoice_id,
+        amount: invoice.amount,
+        token_symbol: invoice.token.symbol,
+        coupon_code: None,
+        metadata: vec![],
+    };
+
+    // Process the payment
+    let result = process_payment_request(payment_request).await?;
+    
+    // Return the transaction for backwards compatibility
+    TRANSACTIONS.with(|transactions| {
+        transactions.borrow().get(&result.transaction_id)
+            .ok_or("Transaction not found after processing".to_string())
+    })
 }
 
 #[ic_cdk::query]
@@ -938,6 +1180,230 @@ fn get_transaction_history(limit: u64, offset: u64) -> Vec<PaymentTransaction> {
             .map(|(_, tx)| tx)
             .collect()
     })
+}
+
+// ============================================================================
+// TOKEN TRANSFER INTEGRATION
+// ============================================================================
+
+// Transfer arguments for ICRC-1 tokens
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub struct TransferArg {
+    pub from_subaccount: Option<[u8; 32]>,
+    pub to: Account,
+    pub amount: u64,
+    pub fee: Option<u64>,
+    pub memo: Option<Vec<u8>>,
+    pub created_at_time: Option<u64>,
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub struct Account {
+    pub owner: Principal,
+    pub subaccount: Option<[u8; 32]>,
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub struct TransferFromArg {
+    pub spender_subaccount: Option<[u8; 32]>,
+    pub from: Account,
+    pub to: Account,
+    pub amount: u64,
+    pub fee: Option<u64>,
+    pub memo: Option<Vec<u8>>,
+    pub created_at_time: Option<u64>,
+}
+
+#[derive(CandidType, Deserialize, Clone, Debug)]
+pub enum TransferError {
+    BadFee { expected_fee: u64 },
+    BadBurn { min_burn_amount: u64 },
+    InsufficientFunds { balance: u64 },
+    InsufficientAllowance { allowance: u64 },
+    TooOld,
+    CreatedInFuture { ledger_time: u64 },
+    Duplicate { duplicate_of: u64 },
+    TemporarilyUnavailable,
+    GenericError { error_code: u64, message: String },
+}
+
+type TransferResult = Result<u64, TransferError>; // Block index or error
+
+// Function to perform transferFrom call to token canister
+async fn transfer_from_token(
+    token_canister_id: Principal,
+    from: Principal,
+    to: Principal,
+    amount: u64,
+) -> Result<u64, String> {
+    let transfer_from_arg = TransferFromArg {
+        spender_subaccount: None,
+        from: Account {
+            owner: from,
+            subaccount: None,
+        },
+        to: Account {
+            owner: to,
+            subaccount: None,
+        },
+        amount,
+        fee: None, // Let the token canister determine the fee
+        memo: None,
+        created_at_time: Some(ic_cdk::api::time()),
+    };
+
+    // Call the token canister's icrc2_transfer_from method
+    let result: Result<(TransferResult,), _> = ic_cdk::call(
+        token_canister_id,
+        "icrc2_transfer_from",
+        (transfer_from_arg,),
+    ).await;
+
+    match result {
+        Ok((transfer_result,)) => match transfer_result {
+            Ok(block_index) => Ok(block_index),
+            Err(transfer_error) => {
+                let error_msg = match transfer_error {
+                    TransferError::BadFee { expected_fee } => {
+                        format!("Bad fee: expected {}", expected_fee)
+                    },
+                    TransferError::InsufficientFunds { balance } => {
+                        format!("Insufficient funds: balance {}", balance)
+                    },
+                    TransferError::InsufficientAllowance { allowance } => {
+                        format!("Insufficient allowance: {}", allowance)
+                    },
+                    TransferError::TooOld => "Transaction too old".to_string(),
+                    TransferError::CreatedInFuture { ledger_time } => {
+                        format!("Transaction created in future: ledger time {}", ledger_time)
+                    },
+                    TransferError::Duplicate { duplicate_of } => {
+                        format!("Duplicate transaction: {}", duplicate_of)
+                    },
+                    TransferError::TemporarilyUnavailable => {
+                        "Service temporarily unavailable".to_string()
+                    },
+                    TransferError::GenericError { error_code, message } => {
+                        format!("Generic error {}: {}", error_code, message)
+                    },
+                    _ => "Unknown transfer error".to_string(),
+                };
+                Err(error_msg)
+            }
+        },
+        Err((rejection_code, msg)) => {
+            Err(format!(
+                "Transfer call failed: {:?} - {}",
+                rejection_code, msg
+            ))
+        }
+    }
+}
+
+// ============================================================================
+// ENHANCED ANALYTICS
+// ============================================================================
+
+// Track payment analytics for modal conversion
+fn track_payment_analytics(token_symbol: &str, amount: u64) {
+    // Update modal analytics for successful payment
+    MODAL_ANALYTICS.with(|analytics| {
+        let mut map = analytics.borrow_mut();
+        if let Some(mut modal_analytics) = map.get(&"modal_1".to_string()) {
+            modal_analytics.successful_payments += 1;
+            modal_analytics.revenue_generated += amount;
+            
+            // Recalculate conversion rate
+            if modal_analytics.total_views > 0 {
+                modal_analytics.conversion_rate = 
+                    modal_analytics.successful_payments as f64 / modal_analytics.total_views as f64;
+            }
+            
+            map.insert("modal_1".to_string(), modal_analytics);
+        }
+    });
+}
+
+// Get enhanced analytics with payment method breakdown
+#[ic_cdk::query]
+fn get_enhanced_analytics() -> PaymentAnalytics {
+    let transactions: Vec<PaymentTransaction> = TRANSACTIONS.with(|t| {
+        t.borrow().iter().map(|(_, tx)| tx).collect()
+    });
+
+    let total_transactions = transactions.len() as u64;
+    let completed_transactions = transactions.iter()
+        .filter(|tx| matches!(tx.status, TransactionStatus::Completed))
+        .count() as u64;
+
+    let success_rate = if total_transactions > 0 {
+        completed_transactions as f64 / total_transactions as f64
+    } else {
+        0.0
+    };
+
+    // Calculate volume per token
+    let mut volume_per_token: HashMap<String, u64> = HashMap::new();
+    let mut amount_per_token: HashMap<String, Vec<u64>> = HashMap::new();
+    
+    for tx in &transactions {
+        if matches!(tx.status, TransactionStatus::Completed) {
+            *volume_per_token.entry(tx.token.symbol.clone()).or_insert(0) += tx.amount;
+            amount_per_token.entry(tx.token.symbol.clone())
+                .or_insert_with(Vec::new)
+                .push(tx.amount);
+        }
+    }
+
+    let total_volume: Vec<(String, u64)> = volume_per_token.clone().into_iter().collect();
+    
+    // Calculate average amounts
+    let average_amount: Vec<(String, u64)> = amount_per_token.into_iter()
+        .map(|(token, amounts)| {
+            let avg = if !amounts.is_empty() {
+                amounts.iter().sum::<u64>() / amounts.len() as u64
+            } else {
+                0
+            };
+            (token, avg)
+        })
+        .collect();
+
+    // Get top tokens by volume
+    let mut top_tokens: Vec<(String, u64)> = volume_per_token.into_iter().collect();
+    top_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+    let top_tokens: Vec<String> = top_tokens.into_iter().take(5).map(|(token, _)| token).collect();
+
+    PaymentAnalytics {
+        total_transactions,
+        total_volume,
+        success_rate,
+        average_amount,
+        top_tokens,
+    }
+}
+
+// Get payment method analytics
+#[ic_cdk::query]
+fn get_payment_method_analytics() -> Vec<(String, u64)> {
+    let transactions: Vec<PaymentTransaction> = TRANSACTIONS.with(|t| {
+        t.borrow().iter().map(|(_, tx)| tx).collect()
+    });
+
+    let mut method_counts: HashMap<String, u64> = HashMap::new();
+    
+    for tx in &transactions {
+        if matches!(tx.status, TransactionStatus::Completed) {
+            let method_name = match tx.payment_method {
+                PaymentMethod::Direct => "Direct",
+                PaymentMethod::TransferFrom => "TransferFrom",
+                PaymentMethod::Subscription => "Subscription",
+            };
+            *method_counts.entry(method_name.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    method_counts.into_iter().collect()
 }
 
 // ============================================================================
@@ -2048,7 +2514,7 @@ fn update_subscription_metadata(subscription_id: String, metadata: Vec<(String, 
 
 #[ic_cdk::update]
 fn process_subscription_payment(subscription_id: String) -> Result<String, String> {
-    let caller = ic_cdk::caller();
+    let _caller = ic_cdk::caller();
     let current_time = ic_cdk::api::time();
     
     // Get subscription
@@ -2205,6 +2671,468 @@ fn get_subscription_stats() -> (u32, u32, u32) {
     });
 
     (plan_count, subscription_count, active_subscription_count)
+}
+
+// ============================================================================
+// PRODUCT MANAGEMENT METHODS
+// ============================================================================
+
+#[ic_cdk::update]
+fn create_product(mut product: Product) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can create products".to_string());
+    }
+
+    // Validate product configuration
+    if product.name.is_empty() {
+        return Err("Product name cannot be empty".to_string());
+    }
+    if product.description.is_empty() {
+        return Err("Product description cannot be empty".to_string());
+    }
+    if product.price == 0 {
+        return Err("Product price must be greater than 0".to_string());
+    }
+    if product.token_symbol.is_empty() {
+        return Err("Product token symbol cannot be empty".to_string());
+    }
+
+    // Validate that the token is supported
+    let config = CONFIG.with(|c| c.borrow().get().clone());
+    let token_exists = config.supported_tokens
+        .iter()
+        .any(|t| t.symbol == product.token_symbol && t.is_active);
+    
+    if !token_exists {
+        return Err("Token not supported or inactive".to_string());
+    }
+
+    // Generate product ID
+    let product_id = NEXT_PRODUCT_ID.with(|id| {
+        let current = *id.borrow().get();
+        id.borrow_mut().set(current + 1).unwrap();
+        format!("product_{}", current)
+    });
+
+    // Set product metadata
+    product.product_id = product_id.clone();
+    product.created_at = ic_cdk::api::time();
+    product.updated_at = ic_cdk::api::time();
+
+    // Store the product
+    PRODUCTS.with(|products| {
+        products.borrow_mut().insert(product_id.clone(), product)
+    });
+
+    // Initialize sales stats for this product
+    let sales_stats = ProductSalesStats {
+        product_id: product_id.clone(),
+        total_sales: 0,
+        total_revenue: 0,
+        units_sold: 0,
+        last_sale_at: None,
+    };
+    
+    PRODUCT_SALES_STATS.with(|stats| {
+        stats.borrow_mut().insert(product_id.clone(), sales_stats)
+    });
+
+    Ok(product_id)
+}
+
+#[ic_cdk::update]
+fn update_product(product_id: String, mut updated_product: Product) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can update products".to_string());
+    }
+
+    // Validate product configuration
+    if updated_product.name.is_empty() {
+        return Err("Product name cannot be empty".to_string());
+    }
+    if updated_product.description.is_empty() {
+        return Err("Product description cannot be empty".to_string());
+    }
+    if updated_product.price == 0 {
+        return Err("Product price must be greater than 0".to_string());
+    }
+    if updated_product.token_symbol.is_empty() {
+        return Err("Product token symbol cannot be empty".to_string());
+    }
+
+    // Validate that the token is supported
+    let config = CONFIG.with(|c| c.borrow().get().clone());
+    let token_exists = config.supported_tokens
+        .iter()
+        .any(|t| t.symbol == updated_product.token_symbol && t.is_active);
+    
+    if !token_exists {
+        return Err("Token not supported or inactive".to_string());
+    }
+
+    PRODUCTS.with(|products| {
+        let mut map = products.borrow_mut();
+        let existing_product = map.get(&product_id)
+            .ok_or("Product not found")?;
+        
+        // Preserve original metadata
+        updated_product.product_id = product_id.clone();
+        updated_product.created_at = existing_product.created_at;
+        updated_product.updated_at = ic_cdk::api::time();
+        
+        map.insert(product_id, updated_product);
+        Ok(())
+    })
+}
+
+#[ic_cdk::query]
+fn get_product(product_id: String) -> Result<Product, String> {
+    PRODUCTS.with(|products| {
+        products.borrow().get(&product_id)
+            .ok_or("Product not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_products() -> Vec<Product> {
+    PRODUCTS.with(|products| {
+        products.borrow().iter().map(|(_, product)| product).collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_active_products() -> Vec<Product> {
+    PRODUCTS.with(|products| {
+        products.borrow().iter()
+            .filter(|(_, product)| matches!(product.status, ProductStatus::Active))
+            .map(|(_, product)| product)
+            .collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_products_by_category(category: String) -> Vec<Product> {
+    PRODUCTS.with(|products| {
+        products.borrow().iter()
+            .filter(|(_, product)| {
+                product.category.as_ref().map_or(false, |cat| cat == &category)
+            })
+            .map(|(_, product)| product)
+            .collect()
+    })
+}
+
+#[ic_cdk::query]
+fn list_products_by_token(token_symbol: String) -> Vec<Product> {
+    PRODUCTS.with(|products| {
+        products.borrow().iter()
+            .filter(|(_, product)| product.token_symbol == token_symbol)
+            .map(|(_, product)| product)
+            .collect()
+    })
+}
+
+#[ic_cdk::update]
+fn delete_product(product_id: String) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can delete products".to_string());
+    }
+
+    PRODUCTS.with(|products| {
+        let mut map = products.borrow_mut();
+        if map.remove(&product_id).is_none() {
+            return Err("Product not found".to_string());
+        }
+        Ok(())
+    })?;
+
+    // Also remove sales statistics
+    PRODUCT_SALES_STATS.with(|stats| {
+        stats.borrow_mut().remove(&product_id)
+    });
+
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn toggle_product_status(product_id: String) -> Result<ProductStatus, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can toggle product status".to_string());
+    }
+
+    PRODUCTS.with(|products| {
+        let mut map = products.borrow_mut();
+        if let Some(mut product) = map.get(&product_id) {
+            product.status = match product.status {
+                ProductStatus::Active => ProductStatus::Inactive,
+                ProductStatus::Inactive => ProductStatus::Active,
+                ProductStatus::OutOfStock => ProductStatus::Active,
+            };
+            product.updated_at = ic_cdk::api::time();
+            let new_status = product.status.clone();
+            map.insert(product_id, product);
+            Ok(new_status)
+        } else {
+            Err("Product not found".to_string())
+        }
+    })
+}
+
+#[ic_cdk::update]
+fn update_product_inventory(product_id: String, inventory_count: Option<u32>) -> Result<(), String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can update product inventory".to_string());
+    }
+
+    PRODUCTS.with(|products| {
+        let mut map = products.borrow_mut();
+        if let Some(mut product) = map.get(&product_id) {
+            product.inventory_count = inventory_count;
+            product.updated_at = ic_cdk::api::time();
+            
+            // Update status based on inventory
+            if let Some(count) = inventory_count {
+                if count == 0 && matches!(product.status, ProductStatus::Active) {
+                    product.status = ProductStatus::OutOfStock;
+                } else if count > 0 && matches!(product.status, ProductStatus::OutOfStock) {
+                    product.status = ProductStatus::Active;
+                }
+            }
+            
+            map.insert(product_id, product);
+            Ok(())
+        } else {
+            Err("Product not found".to_string())
+        }
+    })
+}
+
+#[ic_cdk::query]
+fn get_product_sales_stats(product_id: String) -> Result<ProductSalesStats, String> {
+    PRODUCT_SALES_STATS.with(|stats| {
+        stats.borrow().get(&product_id)
+            .ok_or("Product sales statistics not found".to_string())
+    })
+}
+
+#[ic_cdk::query]
+fn list_all_product_sales_stats() -> Vec<ProductSalesStats> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return vec![];
+    }
+
+    PRODUCT_SALES_STATS.with(|stats| {
+        stats.borrow().iter().map(|(_, stat)| stat).collect()
+    })
+}
+
+#[ic_cdk::query]
+fn get_product_categories() -> Vec<String> {
+    PRODUCTS.with(|products| {
+        let mut categories: std::collections::HashSet<String> = std::collections::HashSet::new();
+        
+        for (_, product) in products.borrow().iter() {
+            if let Some(category) = &product.category {
+                categories.insert(category.clone());
+            }
+        }
+        
+        categories.into_iter().collect()
+    })
+}
+
+// Helper function to update product sales stats
+fn update_product_sales_stats(product_id: &str, sale_amount: u64) {
+    let current_time = ic_cdk::api::time();
+    let product_id_string = product_id.to_string();
+    
+    PRODUCT_SALES_STATS.with(|stats| {
+        let mut map = stats.borrow_mut();
+        if let Some(mut product_stats) = map.get(&product_id_string) {
+            product_stats.total_sales += 1;
+            product_stats.total_revenue += sale_amount;
+            product_stats.units_sold += 1;
+            product_stats.last_sale_at = Some(current_time);
+            
+            map.insert(product_id_string.clone(), product_stats);
+        }
+    });
+    
+    // Update inventory if applicable
+    PRODUCTS.with(|products| {
+        let mut map = products.borrow_mut();
+        if let Some(mut product) = map.get(&product_id_string) {
+            if let Some(current_inventory) = product.inventory_count {
+                if current_inventory > 0 {
+                    product.inventory_count = Some(current_inventory - 1);
+                    
+                    // Mark as out of stock if inventory reaches 0
+                    if current_inventory == 1 {
+                        product.status = ProductStatus::OutOfStock;
+                    }
+                    
+                    product.updated_at = current_time;
+                    map.insert(product_id_string, product);
+                }
+            }
+        }
+    });
+}
+
+// ============================================================================
+// PRODUCT-BASED INVOICE CREATION
+// ============================================================================
+
+#[ic_cdk::update]
+fn create_invoice_for_product(
+    product_id: String,
+    quantity: u32,
+    metadata: Vec<(String, String)>
+) -> Result<PaymentInvoice, String> {
+    if quantity == 0 {
+        return Err("Quantity must be greater than 0".to_string());
+    }
+
+    // Get the product
+    let product = PRODUCTS.with(|products| {
+        products.borrow().get(&product_id)
+    }).ok_or("Product not found")?;
+
+    // Check if product is active and available
+    if !matches!(product.status, ProductStatus::Active) {
+        return Err("Product is not available for purchase".to_string());
+    }
+
+    // Check inventory if applicable
+    if let Some(inventory) = product.inventory_count {
+        if inventory < quantity {
+            return Err(format!(
+                "Insufficient inventory. Available: {}, Requested: {}", 
+                inventory, quantity
+            ));
+        }
+    }
+
+    // Get the token configuration for this product
+    let config = CONFIG.with(|c| c.borrow().get().clone());
+    let token = config.supported_tokens
+        .iter()
+        .find(|t| t.symbol == product.token_symbol && t.is_active)
+        .ok_or("Product token not supported or inactive")?
+        .clone();
+
+    // Calculate total amount
+    let total_amount = product.price * quantity as u64;
+
+    // Generate invoice ID
+    let invoice_id = NEXT_INVOICE_ID.with(|id| {
+        let current = *id.borrow().get();
+        id.borrow_mut().set(current + 1).unwrap();
+        format!("inv_{}", current)
+    });
+
+    // Create enhanced metadata with product information
+    let mut enhanced_metadata = metadata;
+    enhanced_metadata.push(("product_id".to_string(), product_id));
+    enhanced_metadata.push(("product_name".to_string(), product.name.clone()));
+    enhanced_metadata.push(("quantity".to_string(), quantity.to_string()));
+    enhanced_metadata.push(("unit_price".to_string(), product.price.to_string()));
+    if let Some(category) = &product.category {
+        enhanced_metadata.push(("category".to_string(), category.clone()));
+    }
+
+    let invoice = PaymentInvoice {
+        id: invoice_id.clone(),
+        merchant: OWNER.with(|o| *o.borrow().get()),
+        amount: total_amount,
+        token,
+        description: format!("{} (Qty: {})", product.name, quantity),
+        metadata: enhanced_metadata,
+        expires_at: Some(ic_cdk::api::time() + (24 * 60 * 60 * 1_000_000_000)), // 24 hours
+        created_at: ic_cdk::api::time(),
+        status: InvoiceStatus::Created,
+    };
+
+    INVOICES.with(|invoices| invoices.borrow_mut().insert(invoice_id, invoice.clone()));
+    Ok(invoice)
+}
+
+#[ic_cdk::update]
+fn admin_clear_all_products() -> Result<u32, String> {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return Err("Only the owner can clear all products".to_string());
+    }
+
+    // Clear products (except the default one)
+    let count = PRODUCTS.with(|products| {
+        let product_ids: Vec<String> = products.borrow().iter()
+            .filter(|(id, _)| *id != "product_1") // Keep default product
+            .map(|(id, _)| id)
+            .collect();
+        let count = product_ids.len() as u32;
+        let mut map = products.borrow_mut();
+        for id in product_ids {
+            map.remove(&id);
+        }
+        count
+    });
+
+    // Clear corresponding sales stats (except for default product)
+    PRODUCT_SALES_STATS.with(|stats| {
+        let stats_ids: Vec<String> = stats.borrow().iter()
+            .filter(|(id, _)| *id != "product_1") // Keep default product stats
+            .map(|(id, _)| id)
+            .collect();
+        let mut map = stats.borrow_mut();
+        for id in stats_ids {
+            map.remove(&id);
+        }
+    });
+
+    Ok(count)
+}
+
+#[ic_cdk::query]
+fn get_product_stats() -> (u32, u32) {
+    let caller = ic_cdk::caller();
+    let owner = OWNER.with(|o| *o.borrow().get());
+    
+    if caller != owner {
+        return (0, 0);
+    }
+
+    let total_products = PRODUCTS.with(|products| {
+        products.borrow().len() as u32
+    });
+
+    let active_products = PRODUCTS.with(|products| {
+        products.borrow().iter()
+            .filter(|(_, product)| matches!(product.status, ProductStatus::Active))
+            .count() as u32
+    });
+
+    (total_products, active_products)
 }
 
 // Export candid interface
