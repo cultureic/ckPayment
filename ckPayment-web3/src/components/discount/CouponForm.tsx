@@ -81,15 +81,15 @@ interface CouponFormProps {
   onSubmit: (couponData: CreateCouponForm) => Promise<any>;
   onCancel: () => void;
   isLoading?: boolean;
+  supportedTokens?: string[];
 }
-
-const COMMON_TOKENS = ['ICP', 'ckBTC', 'ckETH', 'USDC', 'USDT'];
 
 export const CouponForm: React.FC<CouponFormProps> = ({
   coupon,
   onSubmit,
   onCancel,
   isLoading = false,
+  supportedTokens = ['ICP'], // Default fallback
 }) => {
   const [newToken, setNewToken] = useState('');
   const isEditing = !!coupon;
@@ -320,22 +320,30 @@ export const CouponForm: React.FC<CouponFormProps> = ({
                     Specify which tokens this coupon can be used with. Leave empty for all tokens.
                   </FormDescription>
                   
-                  {/* Common Tokens */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {COMMON_TOKENS.map((token) => (
-                      <Button
-                        key={token}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addCommonToken(token)}
-                        disabled={field.value.includes(token)}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {token}
-                      </Button>
-                    ))}
-                  </div>
+                  
+                  {/* Supported Tokens */}
+                  {supportedTokens.length > 0 && (
+                    <>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        Supported tokens for this canister:
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {supportedTokens.map((token) => (
+                          <Button
+                            key={token}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addCommonToken(token)}
+                            disabled={field.value.includes(token)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            {token}
+                          </Button>
+                        ))}
+                      </div>
+                    </>
+                  )}
 
                   {/* Custom Token Input */}
                   <div className="flex gap-2">

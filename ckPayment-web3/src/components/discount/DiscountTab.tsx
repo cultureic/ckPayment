@@ -1,8 +1,8 @@
 // src/components/discount/DiscountTab.tsx
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useFactory } from '../../hooks/useFactory';
-import { useDiscount } from '../../hooks/useDiscount';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useFactory } from '@/hooks/useFactory';
+import { useDiscount } from '@/hooks/useDiscount';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -12,12 +12,22 @@ import { Plus, AlertCircle } from 'lucide-react';
 import { CouponCard } from './CouponCard';
 import { CouponForm } from './CouponForm';
 import { CouponAnalytics } from './CouponAnalytics';
-import type { DiscountCoupon, CreateCouponForm } from '../../types/discount';
+import type { DiscountCoupon, CreateCouponForm } from '@/types/discount';
 
-export const DiscountTab: React.FC = () => {
+interface DiscountTabProps {
+  coupons?: any[];
+  selectedCanister?: any;
+  isLoading?: boolean;
+}
+
+export const DiscountTab: React.FC<DiscountTabProps> = ({ 
+  coupons = [],
+  selectedCanister,
+  isLoading: parentLoading = false 
+}) => {
   const { isAuthenticated } = useAuth();
   
-  // ✅ REUSE factory state instead of refetching (State Reuse Pattern)
+  // ✅ FALLBACK to factory hook only if props not provided (backward compatibility)
   const { data: factoryData, isLoading: factoryLoading, error: factoryError } = useFactory();
   const userCanisters = factoryData?.userCanisters || [];
   
@@ -26,17 +36,23 @@ export const DiscountTab: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<DiscountCoupon | null>(null);
   
-  // ✅ Auto-select first canister when factory data loads
+  // ✅ Auto-select first canister when factory data loads or use provided canister
   useEffect(() => {
-    if (!selectedCanisterId && userCanisters.length > 0) {
+    if (selectedCanister && !selectedCanisterId) {
+      setSelectedCanisterId(selectedCanister.id.toText());
+    } else if (!selectedCanisterId && userCanisters.length > 0) {
       setSelectedCanisterId(userCanisters[0].id.toText());
     }
-  }, [userCanisters, selectedCanisterId]);
+  }, [userCanisters, selectedCanisterId, selectedCanister]);
   
-  // ✅ Feature-specific hook only for discount operations
-  const discountHook = useDiscount({ 
-    canisterId: selectedCanisterId || '',
-    autoFetch: isAuthenticated && !!selectedCanisterId
+  // ✅ Feature-specific hook using shared context - get selectedCanister from props or factory fallback
+  const currentSelectedCanister = selectedCanister || (selectedCanisterId ? userCanisters.find(c => c.id.toText() === selectedCanisterId) : null);
+  
+  // Use the new hook signature with selectedCanister and preloaded data
+  const discountHook = useDiscount({
+    selectedCanister: currentSelectedCanister,
+    preloadedCoupons: coupons, // Use preloaded data from props
+    autoFetch: isAuthenticated && !!currentSelectedCanister
   });
 
   if (!isAuthenticated) {
@@ -52,7 +68,7 @@ export const DiscountTab: React.FC = () => {
     );
   }
 
-  if (factoryLoading) {
+  if (factoryLoading || parentLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -114,6 +130,27 @@ export const DiscountTab: React.FC = () => {
     return await discountHook.toggleCouponStatus(couponId);
   };
 
+  // Get supported tokens from the selected canister
+  const supportedTokens = useMemo(() => {
+    if (!selectedCanisterId) {
+      return ['ICP']; // Default fallback
+    }
+    
+    const selectedCanister = userCanisters.find(
+      canister => canister.id.toText() === selectedCanisterId
+    );
+    
+    if (!selectedCanister || !selectedCanister.supported_tokens) {
+      return ['ICP']; // Default fallback
+    }
+    
+    const activeTokens = selectedCanister.supported_tokens
+      .filter(token => token.is_active)
+      .map(token => token.symbol);
+      
+    return activeTokens.length > 0 ? activeTokens : ['ICP'];
+  }, [selectedCanisterId, userCanisters]);
+
   return (
     <div className="space-y-6">
       {/* Header with Canister Selection */}
@@ -159,6 +196,17 @@ export const DiscountTab: React.FC = () => {
         </Alert>
       )}
 
+      {/* Debug Info */}
+      <div className="text-sm text-muted-foreground space-y-1 p-4 border rounded">
+        <div>Selected Canister ID: {selectedCanisterId || 'None'}</div>
+        <div>User Canisters: {userCanisters.length}</div>
+        <div>Is Authenticated: {isAuthenticated ? 'Yes' : 'No'}</div>
+        <div>Factory Loading: {factoryLoading ? 'Yes' : 'No'}</div>
+        <div>Parent Loading: {parentLoading ? 'Yes' : 'No'}</div>
+        <div>Discount Hook Loading: {discountHook.loading ? 'Yes' : 'No'}</div>
+        <div>Discount Hook Error: {discountHook.error || 'None'}</div>
+      </div>
+
       {selectedCanisterId && (
         <Tabs defaultValue="coupons" className="space-y-6">
           <TabsList>
@@ -198,21 +246,25 @@ export const DiscountTab: React.FC = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {discountHook.coupons.map((coupon) => (
-                  <CouponCard
-                    key={coupon.coupon_id}
-                    coupon={coupon}
-                    onEdit={(coupon) => setEditingCoupon(coupon)}
-                    onDelete={handleDeleteCoupon}
-                    onToggleStatus={handleToggleStatus}
-                    isLoading={discountHook.loading}
-                    formatDiscount={(coupon) => discountHook.formatCouponDiscount(coupon)}
-                    isExpired={(coupon) => discountHook.isExpired(coupon)}
-                    canUse={(coupon) => discountHook.canUse(coupon)}
-                  />
-                ))}
-              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <h3 className="text-lg font-semibold mb-2">Found {discountHook.coupons.length} Coupons</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Coupons list will be displayed here. CouponCard component temporarily disabled for debugging.
+                    </p>
+                    <div className="text-sm text-left space-y-2">
+                      {discountHook.coupons.map((coupon, index) => (
+                        <div key={index} className="p-2 border rounded">
+                          <div>Code: {coupon.code || 'N/A'}</div>
+                          <div>Description: {coupon.description || 'N/A'}</div>
+                          <div>Active: {coupon.is_active ? 'Yes' : 'No'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
@@ -231,48 +283,62 @@ export const DiscountTab: React.FC = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {discountHook.activeCoupons.map((coupon) => (
-                  <CouponCard
-                    key={coupon.coupon_id}
-                    coupon={coupon}
-                    onEdit={(coupon) => setEditingCoupon(coupon)}
-                    onDelete={handleDeleteCoupon}
-                    onToggleStatus={handleToggleStatus}
-                    isLoading={discountHook.loading}
-                    formatDiscount={(coupon) => discountHook.formatCouponDiscount(coupon)}
-                    isExpired={(coupon) => discountHook.isExpired(coupon)}
-                    canUse={(coupon) => discountHook.canUse(coupon)}
-                  />
-                ))}
-              </div>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <h3 className="text-lg font-semibold mb-2">Found {discountHook.activeCoupons.length} Active Coupons</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Active coupons will be displayed here. CouponCard component temporarily disabled for debugging.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
           <TabsContent value="analytics">
-            {discountHook.analytics && (
-              <CouponAnalytics
-                analytics={discountHook.analytics}
-                coupons={discountHook.coupons}
-                usageHistory={discountHook.usageHistory}
-                isLoading={discountHook.loading}
-              />
-            )}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8">
+                  <h3 className="text-lg font-semibold mb-2">Analytics</h3>
+                  <p className="text-muted-foreground">
+                    Coupon analytics will be displayed here. CouponAnalytics component temporarily disabled for debugging.
+                  </p>
+                  {discountHook.analytics && (
+                    <div className="text-sm text-left mt-4">
+                      <div>Analytics object exists: Yes</div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       )}
 
-      {/* Create/Edit Form Modal */}
+      {/* Create/Edit Form Modal - Temporarily disabled for debugging */}
       {(showCreateForm || editingCoupon) && (
-        <CouponForm
-          coupon={editingCoupon || undefined}
-          onSubmit={editingCoupon ? handleUpdateCoupon : handleCreateCoupon}
-          onCancel={() => {
-            setShowCreateForm(false);
-            setEditingCoupon(null);
-          }}
-          isLoading={discountHook.loading}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg mx-4">
+            <CardHeader>
+              <CardTitle>Create/Edit Coupon Form</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <h3 className="text-lg font-semibold mb-2">Form Temporarily Disabled</h3>
+                <p className="text-muted-foreground mb-4">
+                  CouponForm component temporarily disabled for debugging.
+                </p>
+                <Button onClick={() => {
+                  setShowCreateForm(false);
+                  setEditingCoupon(null);
+                }}>
+                  Close
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

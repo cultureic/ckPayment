@@ -1,6 +1,7 @@
 // src/hooks/useDiscount.ts
 import { useState, useEffect, useCallback } from 'react';
-import { DiscountService } from '../services/discount-service';
+import { createActor } from '../services/user-payment-idl';
+import { useAuth } from './useAuth';
 import type { 
   DiscountCoupon, 
   CouponUsage, 
@@ -19,13 +20,20 @@ interface UseDiscountState {
 }
 
 interface UseDiscountParams {
-  canisterId: string;
+  selectedCanister?: any; // From Dashboard context
+  preloadedCoupons?: any[]; // From Dashboard data
   autoFetch?: boolean;
 }
 
-export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams) => {
+export const useDiscount = ({ 
+  selectedCanister, 
+  preloadedCoupons = [], 
+  autoFetch = true 
+}: UseDiscountParams) => {
+  const { identity } = useAuth();
+  
   const [state, setState] = useState<UseDiscountState>({
-    coupons: [],
+    coupons: preloadedCoupons || [],
     activeCoupons: [],
     usageHistory: [],
     analytics: null,
@@ -33,14 +41,38 @@ export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams)
     error: null,
   });
 
-  const [service] = useState(() => new DiscountService(canisterId));
+  const [actor, setActor] = useState<any>(null);
 
+  // Initialize actor when canister changes
   useEffect(() => {
-    if (canisterId) {
-      service.initialize().catch(console.error);
+    if (selectedCanister && identity) {
+      try {
+        const newActor = createActor(selectedCanister.id.toText(), { 
+          agent: { identity } as any 
+        });
+        setActor(newActor);
+        setState(prev => ({ ...prev, error: null }));
+      } catch (error) {
+        console.error('Failed to initialize discount actor:', error);
+        setState(prev => ({ 
+          ...prev, 
+          error: error instanceof Error ? error.message : 'Failed to initialize discount service' 
+        }));
+        setActor(null);
+      }
+    } else {
+      setActor(null);
     }
-  }, [service, canisterId]);
+  }, [selectedCanister, identity]);
 
+  // Update state when preloaded data changes
+  useEffect(() => {
+    if (preloadedCoupons && preloadedCoupons.length > 0) {
+      setState(prev => ({ ...prev, coupons: preloadedCoupons }));
+    }
+  }, [preloadedCoupons]);
+
+  // Helper functions
   const setLoading = (loading: boolean) => 
     setState(prev => ({ ...prev, loading }));
 
@@ -49,57 +81,108 @@ export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams)
 
   // Coupon CRUD Operations
   const fetchCoupons = useCallback(async () => {
-    if (!canisterId) return;
+    if (!actor) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const result = await service.getMyCoupons();
-      if (result.success) {
-        setState(prev => ({ ...prev, coupons: result.data || [] }));
-      } else {
-        setError(result.error || 'Failed to fetch coupons');
-      }
+      const result = await actor.list_my_coupons();
+      setState(prev => ({ ...prev, coupons: result || [] }));
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unknown error');
+      setError(error instanceof Error ? error.message : 'Failed to fetch coupons');
     } finally {
       setLoading(false);
     }
-  }, [service, canisterId]);
+  }, [actor]);
 
   const fetchActiveCoupons = useCallback(async () => {
-    if (!canisterId) return;
+    if (!actor) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const result = await service.getActiveCoupons();
-      if (result.success) {
-        setState(prev => ({ ...prev, activeCoupons: result.data || [] }));
-      } else {
-        setError(result.error || 'Failed to fetch active coupons');
-      }
+      const result = await actor.list_active_coupons();
+      setState(prev => ({ ...prev, activeCoupons: result || [] }));
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unknown error');
+      setError(error instanceof Error ? error.message : 'Failed to fetch active coupons');
     } finally {
       setLoading(false);
     }
-  }, [service, canisterId]);
+  }, [actor]);
 
+  // Simple utility functions for coupon display
+  const formatCouponDiscount = useCallback((coupon: DiscountCoupon) => {
+    if (!coupon.coupon_type) return '';
+    
+    if ('Percentage' in coupon.coupon_type) {
+      return `${coupon.coupon_type.Percentage}% off`;
+    } else if ('FixedAmount' in coupon.coupon_type) {
+      return `${coupon.coupon_type.FixedAmount.toString()} tokens off`;
+    } else if ('FreeShipping' in coupon.coupon_type) {
+      return 'Free shipping';
+    }
+    return '';
+  }, []);
+
+  const isExpired = useCallback((coupon: DiscountCoupon) => {
+    if (!coupon.expires_at || coupon.expires_at.length === 0) return false;
+    const expiry = Number(coupon.expires_at[0]) / 1_000_000; // Convert from nanoseconds
+    return Date.now() > expiry;
+  }, []);
+
+  const canUse = useCallback((coupon: DiscountCoupon) => {
+    return coupon.is_active && !isExpired(coupon);
+  }, [isExpired]);
+
+  // Basic create coupon functionality
   const createCoupon = useCallback(async (couponData: CreateCouponForm) => {
+    if (!actor) return { success: false, error: 'No canister selected' };
+    
     setLoading(true);
     setError(null);
     
     try {
-      const result = await service.createCoupon(couponData);
-      if (result.success) {
+      // Format coupon type
+      let couponType;
+      switch (couponData.coupon_type) {
+        case 'Percentage':
+          couponType = { Percentage: parseInt(couponData.discount_value) };
+          break;
+        case 'FixedAmount':
+          couponType = { FixedAmount: BigInt(couponData.discount_value) };
+          break;
+        case 'FreeShipping':
+          couponType = { FreeShipping: null };
+          break;
+        default:
+          throw new Error(`Unsupported coupon type: ${couponData.coupon_type}`);
+      }
+      
+      const formattedCoupon = {
+        coupon_id: '',
+        code: couponData.code.toUpperCase(),
+        coupon_type: couponType,
+        description: couponData.description,
+        minimum_amount: couponData.minimum_amount ? [BigInt(couponData.minimum_amount)] : [],
+        applicable_tokens: couponData.applicable_tokens,
+        usage_limit: couponData.usage_limit ? [couponData.usage_limit] : [],
+        used_count: 0,
+        expires_at: couponData.expires_at ? [BigInt(couponData.expires_at.getTime() * 1_000_000)] : [],
+        is_active: couponData.is_active,
+        created_at: BigInt(0),
+        updated_at: BigInt(0),
+      };
+      
+      const result = await actor.create_coupon(formattedCoupon);
+      
+      if ('Ok' in result) {
         await fetchCoupons(); // Refresh coupons
-        return { success: true, data: result.data };
+        return { success: true, data: result.Ok };
       } else {
-        setError(result.error || 'Failed to create coupon');
-        return { success: false, error: result.error };
+        setError(result.Err || 'Failed to create coupon');
+        return { success: false, error: result.Err };
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -108,42 +191,24 @@ export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams)
     } finally {
       setLoading(false);
     }
-  }, [service, fetchCoupons]);
+  }, [actor, fetchCoupons]);
 
-  const updateCoupon = useCallback(async (couponId: string, couponData: CreateCouponForm) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await service.updateCoupon(couponId, couponData);
-      if (result.success) {
-        await fetchCoupons(); // Refresh coupons
-        return { success: true };
-      } else {
-        setError(result.error || 'Failed to update coupon');
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoading(false);
-    }
-  }, [service, fetchCoupons]);
-
+  // Basic delete coupon functionality  
   const deleteCoupon = useCallback(async (couponId: string) => {
+    if (!actor) return { success: false, error: 'No canister selected' };
+    
     setLoading(true);
     setError(null);
     
     try {
-      const result = await service.deleteCoupon(couponId);
-      if (result.success) {
+      const result = await actor.delete_coupon(couponId);
+      
+      if ('Ok' in result) {
         await fetchCoupons(); // Refresh coupons
         return { success: true };
       } else {
-        setError(result.error || 'Failed to delete coupon');
-        return { success: false, error: result.error };
+        setError(result.Err || 'Failed to delete coupon');
+        return { success: false, error: result.Err };
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -152,20 +217,45 @@ export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams)
     } finally {
       setLoading(false);
     }
-  }, [service, fetchCoupons]);
+  }, [actor, fetchCoupons]);
 
+  // Basic update coupon functionality  
+  const updateCoupon = useCallback(async (couponId: string, couponData: CreateCouponForm) => {
+    if (!actor) return { success: false, error: 'No canister selected' };
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // For now, we'll just return a not implemented error
+      // The actual implementation would require an update_coupon method in the canister
+      setError('Update coupon functionality not yet implemented');
+      return { success: false, error: 'Update coupon functionality not yet implemented' };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMsg);
+      return { success: false, error: errorMsg };
+    } finally {
+      setLoading(false);
+    }
+  }, [actor, fetchCoupons]);
+
+  // Toggle coupon status
   const toggleCouponStatus = useCallback(async (couponId: string) => {
+    if (!actor) return { success: false, error: 'No canister selected' };
+    
     setLoading(true);
     setError(null);
     
     try {
-      const result = await service.toggleCouponStatus(couponId);
-      if (result.success) {
+      const result = await actor.toggle_coupon_status(couponId);
+      
+      if ('Ok' in result) {
         await fetchCoupons(); // Refresh coupons
-        return { success: true, data: result.data };
+        return { success: true, data: result.Ok };
       } else {
-        setError(result.error || 'Failed to toggle coupon status');
-        return { success: false, error: result.error };
+        setError(result.Err || 'Failed to toggle coupon status');
+        return { success: false, error: result.Err };
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -174,143 +264,17 @@ export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams)
     } finally {
       setLoading(false);
     }
-  }, [service, fetchCoupons]);
+  }, [actor, fetchCoupons]);
 
-  // Coupon validation and usage
-  const validateCoupon = useCallback(async (code: string, invoiceAmount: bigint) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await service.validateCoupon(code, invoiceAmount);
-      if (result.success) {
-        return { success: true, data: result.data };
-      } else {
-        setError(result.error || 'Failed to validate coupon');
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoading(false);
-    }
-  }, [service]);
-
-  const applyCoupon = useCallback(async (code: string, invoiceAmount: bigint) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await service.applyCoupon(code, invoiceAmount);
-      if (result.success) {
-        return { success: true, data: result.data };
-      } else {
-        setError(result.error || 'Failed to apply coupon');
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoading(false);
-    }
-  }, [service]);
-
-  // Analytics and usage tracking
-  const fetchCouponUsageStats = useCallback(async (couponId: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await service.getCouponUsageStats(couponId);
-      if (result.success) {
-        const [usageCount, history] = result.data || [0, []];
-        setState(prev => ({ ...prev, usageHistory: history }));
-        return { success: true, data: { usageCount, history } };
-      } else {
-        setError(result.error || 'Failed to fetch usage stats');
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoading(false);
-    }
-  }, [service]);
-
-  const calculateAnalytics = useCallback((coupons: DiscountCoupon[], usageHistory: CouponUsage[]) => {
-    const totalCoupons = coupons.length;
-    const activeCoupons = coupons.filter(c => service.canUse(c)).length;
-    const totalUsage = usageHistory.length;
-    const totalSavings = usageHistory.reduce((sum, usage) => sum + usage.discount_applied, BigInt(0));
-    
-    const usageByCoupon = usageHistory.reduce((acc, usage) => {
-      acc[usage.coupon_id] = (acc[usage.coupon_id] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    const mostUsedCoupon = Object.keys(usageByCoupon).reduce((a, b) => 
-      usageByCoupon[a] > usageByCoupon[b] ? a : b, '');
-    
-    const conversionRate = totalCoupons > 0 ? totalUsage / totalCoupons : 0;
-    
-    const analytics: CouponAnalytics = {
-      total_coupons: totalCoupons,
-      active_coupons: activeCoupons,
-      total_usage: totalUsage,
-      total_savings: totalSavings,
-      most_used_coupon: mostUsedCoupon || undefined,
-      conversion_rate: conversionRate
-    };
-
-    setState(prev => ({ ...prev, analytics }));
-    return analytics;
-  }, [service]);
-
-  // Admin operations
-  const clearAllCoupons = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await service.clearAllCoupons();
-      if (result.success) {
-        await fetchCoupons(); // Refresh coupons
-        return { success: true, data: result.data };
-      } else {
-        setError(result.error || 'Failed to clear coupons');
-        return { success: false, error: result.error };
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
-    } finally {
-      setLoading(false);
-    }
-  }, [service, fetchCoupons]);
-
-  // Initialize data on mount
+  // Auto-fetch data when actor is available
   useEffect(() => {
-    if (autoFetch && canisterId) {
+    if (autoFetch && actor) {
       Promise.all([
         fetchCoupons(),
         fetchActiveCoupons()
       ]).catch(console.error);
     }
-  }, [fetchCoupons, fetchActiveCoupons, autoFetch, canisterId]);
-
-  // Update analytics when coupons or usage history changes
-  useEffect(() => {
-    if (state.coupons.length > 0 || state.usageHistory.length > 0) {
-      calculateAnalytics(state.coupons, state.usageHistory);
-    }
-  }, [state.coupons, state.usageHistory, calculateAnalytics]);
+  }, [actor, autoFetch, fetchCoupons, fetchActiveCoupons]);
 
   return {
     ...state,
@@ -321,22 +285,13 @@ export const useDiscount = ({ canisterId, autoFetch = true }: UseDiscountParams)
     updateCoupon,
     deleteCoupon,
     toggleCouponStatus,
-    // Validation and usage
-    validateCoupon,
-    applyCoupon,
-    // Analytics
-    fetchCouponUsageStats,
-    calculateAnalytics,
-    // Admin operations
-    clearAllCoupons,
     // Utilities
     refresh: useCallback(() => {
       return Promise.all([fetchCoupons(), fetchActiveCoupons()]);
     }, [fetchCoupons, fetchActiveCoupons]),
-    // Service utility methods
-    formatCouponDiscount: (coupon: DiscountCoupon) => service.formatCouponDiscount(coupon),
-    isExpired: (coupon: DiscountCoupon) => service.isExpired(coupon),
-    isUsageLimitReached: (coupon: DiscountCoupon) => service.isUsageLimitReached(coupon),
-    canUse: (coupon: DiscountCoupon) => service.canUse(coupon),
+    // Utility methods
+    formatCouponDiscount,
+    isExpired,
+    canUse,
   };
 };
