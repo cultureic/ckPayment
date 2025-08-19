@@ -10,12 +10,16 @@ export const useUserPaymentCanister = () => {
   const [userPaymentService, setUserPaymentService] = useState(null);
   const [supportedTokens, setSupportedTokens] = useState([]);
   const [canisterId, setCanisterId] = useState(null);
+  const [modalConfig, setModalConfig] = useState(null);
+  const [canisterConfig, setCanisterConfig] = useState(null);
 
 
   useEffect(()=>{
     if(canisterId)
     {
-      getSupportedTokensFromCanister()
+      getSupportedTokensFromCanister();
+      getModalConfigFromCanister();
+      getCanisterConfigFromCanister();
     }
   },[canisterId])
 
@@ -36,10 +40,12 @@ export const useUserPaymentCanister = () => {
     }
   }, [isAuthenticated, identity, canisterId]);
 
-  // Fetch supported tokens when service is available
+  // Fetch all data when service is available
   useEffect(() => {
     if (userPaymentService) {
       getSupportedTokensFromCanister();
+      getModalConfigFromCanister();
+      getCanisterConfigFromCanister();
     }
   }, [userPaymentService]);
 
@@ -65,6 +71,63 @@ export const useUserPaymentCanister = () => {
       ];
       setSupportedTokens(fallbackTokens);
       return fallbackTokens;
+    }
+  };
+
+  const getModalConfigFromCanister = async (modalId = 'modal_1') => {
+    try {
+      if (!userPaymentService) {
+        console.warn('User payment service not available for modal config');
+        return null;
+      }
+      
+      console.log('Fetching modal configuration from user payment canister...');
+      const config = await userPaymentService.getModalConfig(modalId);
+      console.log('Modal configuration from canister:', config);
+      setModalConfig(config);
+      return config;
+    } catch (error) {
+      console.error('Failed to get modal configuration:', error);
+      // Use default configuration on error
+      const defaultConfig = {
+        modal_id: 'default',
+        name: 'Payment Modal',
+        theme: {
+          primary_color: '#3b82f6',
+          background_color: '#ffffff',
+          text_color: '#1f2937',
+          border_radius: 8,
+          font_family: 'Inter, sans-serif'
+        },
+        branding: {
+          company_name: 'Your Company',
+          logo_url: null
+        },
+        payment_options: {
+          allowed_tokens: [],
+          show_amount_breakdown: true
+        }
+      };
+      setModalConfig(defaultConfig);
+      return defaultConfig;
+    }
+  };
+
+  const getCanisterConfigFromCanister = async () => {
+    try {
+      if (!userPaymentService) {
+        console.warn('User payment service not available for canister config');
+        return null;
+      }
+      
+      console.log('Fetching canister configuration from user payment canister...');
+      const config = await userPaymentService.getCanisterConfiguration();
+      console.log('Canister configuration from canister:', config);
+      setCanisterConfig(config);
+      return config;
+    } catch (error) {
+      console.error('Failed to get canister configuration:', error);
+      return null;
     }
   };
 
@@ -97,8 +160,12 @@ export const useUserPaymentCanister = () => {
     userPaymentService,
     supportedTokens,
     canisterId,
+    modalConfig,
+    canisterConfig,
     transferToken,
-    getSupportedTokensFromCanister
+    getSupportedTokensFromCanister,
+    getModalConfigFromCanister,
+    getCanisterConfigFromCanister
   };
 };
 
