@@ -223,7 +223,7 @@ class FactoryService {
         version: '1.3.0'
       },
       {
-        id: 'ryjl3-tyaaa-aaaah-qcgfa-cai',
+        id: 'ryjl3-tyaaa-aaaah-qcgha-cai',
         name: 'Digital Marketplace',
         owner: 'charlie-principal-id',
         created_at: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 hours ago
@@ -258,7 +258,7 @@ class FactoryService {
             symbol: 'ICP',
             name: 'Internet Computer Protocol',
             decimals: 8,
-            canister_id: Principal.fromText('ryjl3-tyaaa-aaaah-qcgha-cai'),
+            canister_id: Principal.fromText('ryjl3-tyaaa-aaaah-qcpqx-cai'),
             fee: BigInt(10000),
             logo: null,
             is_active: true

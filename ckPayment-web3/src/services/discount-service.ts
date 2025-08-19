@@ -18,14 +18,34 @@ export class DiscountService {
   constructor(private canisterId: string) {}
   
   async initialize(): Promise<void> {
-    this.actor = await createActor(this.canisterId, {
-      agentOptions: { host: 'https://ic0.app' }
-    });
+    try {
+      if (!this.canisterId || this.canisterId.trim() === '') {
+        throw new Error('Canister ID is required for DiscountService initialization');
+      }
+      
+      this.actor = await createActor(this.canisterId, {
+        agentOptions: { host: process.env.NODE_ENV === 'production' ? 'https://ic0.app' : 'http://127.0.0.1:4943' }
+      });
+      
+      if (!this.actor) {
+        throw new Error('Failed to create actor for discount service');
+      }
+    } catch (error) {
+      console.error('Failed to initialize DiscountService:', error);
+      throw error;
+    }
+  }
+
+  private isInitialized(): boolean {
+    return !!this.actor;
   }
 
   // CRUD Operations
   async createCoupon(couponData: CreateCouponForm): Promise<ServiceResponse<string>> {
     try {
+      if (!this.isInitialized()) {
+        throw new Error('DiscountService not initialized. Call initialize() first.');
+      }
       const formattedCoupon = this.formatCouponForBackend(couponData);
       const result = await this.actor.create_coupon(formattedCoupon);
       return this.handleResult(result);
@@ -161,11 +181,11 @@ export class DiscountService {
 
   private formatCouponType(type: CouponType, value: string): CouponTypeData {
     switch (type) {
-      case CouponType.Percentage:
+      case 'Percentage':
         return { Percentage: parseInt(value) };
-      case CouponType.FixedAmount:
+      case 'FixedAmount':
         return { FixedAmount: BigInt(value) };
-      case CouponType.FreeShipping:
+      case 'FreeShipping':
         return { FreeShipping: null };
       default:
         throw new Error(`Unsupported coupon type: ${type}`);

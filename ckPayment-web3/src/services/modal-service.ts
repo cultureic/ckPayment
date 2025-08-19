@@ -73,10 +73,11 @@ export class ModalService {
 
   // Helper method to convert form data to canister format
   // Note: The ModalBuilder component uses a flat structure, so we need to adapt it
+  // IMPORTANT: Candid optional fields use [] for null and [value] for non-null
   private formDataToCanisterFormat(formData: any): any {
     return {
       name: formData.name,
-      description: formData.description || '',
+      description: formData.description && formData.description.trim() ? [formData.description] : [],
       theme: {
         primary_color: formData.theme.primary_color,
         background_color: formData.theme.background_color,
@@ -93,17 +94,17 @@ export class ModalService {
         enable_tips: false,
       },
       branding: {
-        logo_url: formData.company_logo || '',
+        logo_url: formData.company_logo && formData.company_logo.trim() ? [formData.company_logo] : [],
         company_name: formData.company_name,
-        support_url: formData.website_url || '',
-        terms_url: '',
+        support_url: formData.website_url && formData.website_url.trim() ? [formData.website_url] : [],
+        terms_url: formData.terms_url && formData.terms_url.trim() ? [formData.terms_url] : [],
       },
       redirect_urls: {
         success_url: formData.success_url || 'https://example.com/success',
         cancel_url: formData.cancel_url || 'https://example.com/cancel',
-        webhook_url: formData.webhook_url || '',
+        webhook_url: formData.webhook_url && formData.webhook_url.trim() ? [formData.webhook_url] : [],
       },
-      template_id: '',
+      template_id: formData.template_id && formData.template_id.trim() ? [formData.template_id] : [],
       is_active: formData.is_active ?? true,
       custom_fields: formData.custom_fields || [],
       minimum_amount: formData.minimum_amount,
@@ -113,17 +114,18 @@ export class ModalService {
 
   // Helper method to convert canister format to client format
   // Convert to the flat structure expected by ModalBuilder component
+  // IMPORTANT: Extract values from Candid optional fields [value] or [] format
   private canisterFormatToClientFormat(canisterConfig: any): any {
     return {
       modal_id: canisterConfig.modal_id || 'mock-id',
       name: canisterConfig.name || '',
-      description: canisterConfig.description || '',
+      description: (canisterConfig.description && canisterConfig.description.length > 0) ? canisterConfig.description[0] : '',
       company_name: canisterConfig.branding?.company_name || '',
-      company_logo: canisterConfig.branding?.logo_url || '',
-      website_url: canisterConfig.branding?.support_url || '',
+      company_logo: (canisterConfig.branding?.logo_url && canisterConfig.branding.logo_url.length > 0) ? canisterConfig.branding.logo_url[0] : '',
+      website_url: (canisterConfig.branding?.support_url && canisterConfig.branding.support_url.length > 0) ? canisterConfig.branding.support_url[0] : '',
       success_url: canisterConfig.redirect_urls?.success_url || '',
       cancel_url: canisterConfig.redirect_urls?.cancel_url || '',
-      webhook_url: canisterConfig.redirect_urls?.webhook_url || '',
+      webhook_url: (canisterConfig.redirect_urls?.webhook_url && canisterConfig.redirect_urls.webhook_url.length > 0) ? canisterConfig.redirect_urls.webhook_url[0] : '',
       theme: {
         primary_color: canisterConfig.theme?.primary_color || '#3B82F6',
         background_color: canisterConfig.theme?.background_color || '#FFFFFF',
